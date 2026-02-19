@@ -19,6 +19,7 @@ import {
     Voicemail,
     type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface NavItemProps {
     icon: LucideIcon;
@@ -85,6 +86,7 @@ type UserRole = keyof typeof MENU_ITEMS;
 
 export function SideNav() {
     const pathname = usePathname();
+    const { logout } = useAuth();
     const [role, setRole] = useState<UserRole | null>(null);
 
     useEffect(() => {
@@ -137,7 +139,10 @@ export function SideNav() {
                     ))}
                 </div>
 
-                <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-muted-foreground transition-all duration-200 hover:bg-white/50 hover:text-foreground">
+                <button
+                    onClick={logout}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-muted-foreground transition-all duration-200 hover:bg-white/50 hover:text-foreground"
+                >
                     <LogOut className="h-4 w-4 opacity-70" />
                     <span className="font-medium">Logout</span>
                 </button>
