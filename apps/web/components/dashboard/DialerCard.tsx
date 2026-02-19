@@ -19,14 +19,18 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
         callStatus,
         errorMessage,
         initializeDevice,
-        device
+        device,
+        isDeviceRegistered,
+        isInitializing,
     } = useCallStore();
 
     useEffect(() => {
-        if (!device) {
+        // Initialize device if not already done
+        const token = localStorage.getItem("token");
+        if (!device && token && !isInitializing) {
             initializeDevice();
         }
-    }, [device, initializeDevice]);
+    }, [device, initializeDevice, isInitializing]);
 
     const handleKeyPress = (key: string) => {
         if (phoneNumber.length < 15) {
@@ -64,17 +68,15 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
     const agentStatus: AgentStatusType = (callStatus === "in-progress" || callStatus === "ringing") ? "On Call" : "Live";
 
     let dialerStatus: DialerStatusType = "Disconnected";
-    if (callStatus === "registered" || device) {
+    if (isDeviceRegistered) {
         dialerStatus = "Connected";
-    } else if (callStatus === "idle" && !device) { // Or a specific initializing state if we had one
+    } else if (isInitializing) {
         dialerStatus = "Initializing";
+    } else if (errorMessage) {
+        dialerStatus = "Disconnected";
+    } else if (device) {
+        dialerStatus = "Connected";
     }
-    // Simple override for now as 'idle' usually means ready/connected in our store logic after init
-    if (device) dialerStatus = "Connected";
-    if (!device && !errorMessage) dialerStatus = "Initializing";
-    if (errorMessage) dialerStatus = "Disconnected";
-
-
 
     return (
         <div className="flex flex-col gap-4 w-full h-full">
@@ -113,14 +115,15 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
                             value={phoneNumber}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                if (/^[0-9*#+]*$/.test(val) && val.length <= 15) {
+                                // Allow + prefix for international numbers (e.g. +91, +1)
+                                if (/^\+?[0-9*#]*$/.test(val) && val.length <= 15) {
                                     setPhoneNumber(val);
                                 }
                             }}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") handleCall();
                             }}
-                            placeholder="Please Enter the Phone Number"
+                            placeholder="+1XXXXXXXXXX"
                             className="w-full bg-transparent text-center font-medium text-base text-[#111] placeholder:text-[#111] placeholder:opacity-60 focus:outline-none"
                         />
                         {phoneNumber.length > 0 && (
@@ -160,7 +163,7 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
                     <CallControlButton
                         variant="call"
                         onClick={handleCall}
-                        disabled={!phoneNumber || !device}
+                        disabled={!phoneNumber || !isDeviceRegistered}
                     />
                 </div>
             </div>

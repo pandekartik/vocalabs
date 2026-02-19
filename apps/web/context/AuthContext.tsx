@@ -2,17 +2,24 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { INTELICONVOAPI } from "@/lib/axios";
+import { useCallStore } from "@/store/useCallStore";
 
 interface User {
-    first_name: string;
-    last_name: string;
+    user_id: string;
+    first_name?: string;
+    last_name?: string;
     email: string;
     role: string;
+    organization_id?: string;
+    email_verified?: boolean;
 }
 
 interface AuthContextType {
     user: User | null;
-    login: (email: string) => void;
+    isLoading: boolean;
+    loginError: string | null;
+    login: (email: string, password: string, organizationSlug?: string) => Promise<void>;
     logout: () => void;
 }
 
@@ -20,6 +27,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [loginError, setLoginError] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -34,43 +43,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    const login = (email: string) => {
-        // Mock login logic - in a real app, this would verify credentials
-        // For now, we simulate a successful login as an Agent (or based on email)
+    const login = async (email: string, password: string, organizationSlug?: string) => {
+        setIsLoading(true);
+        setLoginError(null);
 
-        let role = "AGENT";
-        let firstName = "Kartik";
-        let lastName = "Pande";
+        try {
+            // Call the real backend: POST /auth/login
+            const response = await INTELICONVOAPI.post("/auth/login", {
+                email,
+                password,
+                organization_slug: organizationSlug || "",
+            });
 
-        if (email.includes("admin")) {
-            role = "ORG_ADMIN";
-            firstName = "Atharv";
-        } else if (email.includes("supervisor")) {
-            role = "SUPERVISOR";
-            firstName = "Saif";
-            lastName = "Khan";
+            const data = response.data;
+
+            if (!data.access_token) {
+                throw new Error("No access token received from server");
+            }
+
+            // Build user object from response
+            const newUser: User = {
+                user_id: data.user_id,
+                email,
+                role: data.role,
+                organization_id: data.organization_id,
+                email_verified: data.email_verified,
+            };
+
+            // Store in localStorage (token + user details)
+            localStorage.setItem("token", data.access_token);
+            localStorage.setItem("user", JSON.stringify(newUser));
+
+            setUser(newUser);
+
+            // Initialize Twilio Device immediately after login
+            // Small delay to ensure localStorage is written before store reads it
+            setTimeout(() => {
+                useCallStore.getState().initializeDevice();
+            }, 100);
+
+            router.push("/dashboard");
+        } catch (err: any) {
+            const detail = err?.response?.data?.detail;
+            const message = detail || err.message || "Login failed";
+            console.error("Login failed:", message);
+            setLoginError(message);
+            throw new Error(message);
+        } finally {
+            setIsLoading(false);
         }
-
-        const newUser = {
-            first_name: firstName,
-            last_name: lastName,
-            email,
-            role,
-        };
-
-        localStorage.setItem("user", JSON.stringify(newUser));
-        setUser(newUser);
-        router.push("/");
     };
 
     const logout = () => {
+        // Destroy Twilio Device before clearing auth
+        useCallStore.getState().destroyDevice();
+
         localStorage.removeItem("user");
+        localStorage.removeItem("token");
         setUser(null);
+        setLoginError(null);
         router.push("/login");
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, isLoading, loginError, login, logout }}>
             {children}
         </AuthContext.Provider>
     );
