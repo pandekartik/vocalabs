@@ -1,0 +1,47 @@
+/* styles.css */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f3f4f6;
+}
+
+.container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around; /* Space boxes evenly */
+    padding: 20px;
+}
+
+.box {
+    background-color: #3892CF;
+    color: white;
+    padding: 20px;
+    margin: 10px;
+    flex: 1 1 calc(25% - 20px); /* Grow and shrink with a base width of 25% */
+    min-width: 200px; /* Minimum width for smaller screens */
+    text-align: center;
+    border-radius: 8px; /* Rounded corners */
+    transition: transform 0.3s; /* Smooth scaling effect */
+}
+
+/* Add hover effect for better UX */
+.box:hover {
+    transform: scale(1.05); /* Slightly scale up on hover */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .box {
+        flex: 1 1 calc(50% - 20px); /* 2 boxes per row */
+    }
+}
+
+@media (max-width: 480px) {
+    .box {
+        flex: 1 1 calc(100% - 20px); /* 1 box per row */
+    }
+}

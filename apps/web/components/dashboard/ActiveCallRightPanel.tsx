@@ -1,8 +1,21 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
+import { useCallStore } from "@/store/useCallStore";
 
 export default function ActiveCallRightPanel() {
+    const { transcript } = useCallStore();
+    const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [transcript]);
+
     return (
         <div className="grid h-full grid-rows-3 gap-4">
             {/* Live Transcript Card */}
@@ -13,18 +26,16 @@ export default function ActiveCallRightPanel() {
                     }}
                 >
                     <div className="flex flex-col gap-4 text-base font-medium text-[#111] opacity-60 font-sans whitespace-pre-wrap">
-                        <p><span className="font-bold">Agent:</span> Thank you for calling HealthCare Solutions! We truly appreciate your call. How can I assist you today? Is there something specific you need help with?</p>
-                        <p><span className="font-bold">Customer:</span> Hi there! I’m reaching out because I need some assistance regarding my recent prescription order. I want to ensure everything is in order.</p>
-                        <p><span className="font-bold">Agent:</span> Of course! I’d be happy to help with that. Can you please provide me with your order number or the name on the account?</p>
-                        <p><span className="font-bold">Customer:</span> Sure, the order number is #123456789.</p>
-                        <p><span className="font-bold">Agent:</span> Thank you. Let me check the status for you...</p>
-                        <p><span className="font-bold">Agent:</span> I see the order is processing and will ship tomorrow.</p>
-                        <p><span className="font-bold">Customer:</span> Great, thank you!</p>
-                        <p><span className="font-bold">Agent:</span> Is there anything else?</p>
-                        <p><span className="font-bold">Customer:</span> No that's all.</p>
-                        <p><span className="font-bold">Agent:</span> Have a great day!</p>
-                        <p><span className="font-bold">Customer:</span> You too.</p>
-                        <p><span className="font-bold">Agent:</span> Goodbye.</p>
+                        {transcript.length > 0 ? (
+                            transcript.map((msg, index) => (
+                                <p key={index}>
+                                    <span className="font-bold">{msg.speaker}:</span> {msg.text}
+                                </p>
+                            ))
+                        ) : (
+                            <p className="text-gray-400 italic">No transcript yet...</p>
+                        )}
+                        <div ref={transcriptEndRef} />
                     </div>
                 </div>
             </Card>

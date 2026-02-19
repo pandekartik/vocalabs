@@ -16,6 +16,8 @@
     "@hookform/resolvers": "^5.2.2",
     "@repo/ui": "*",
     "@tanstack/react-query": "^5.90.21",
+    "@twilio/voice-sdk": "^2.18.0",
+    "axios": "^1.13.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.34.2",

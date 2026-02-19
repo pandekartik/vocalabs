@@ -1,31 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Phone, Delete } from "lucide-react";
+import { useCallStore } from "@/store/useCallStore";
 
 interface DialerCardProps {
-    onCallStart: (number: string) => void;
+    onCallStart: () => void;
 }
 
 export default function DialerCard({ onCallStart }: DialerCardProps) {
-    const [phoneNumber, setPhoneNumber] = useState("");
+    const {
+        phoneNumber,
+        setPhoneNumber,
+        initiateCall,
+        callStatus,
+        errorMessage,
+        initializeDevice,
+        device
+    } = useCallStore();
+
+    useEffect(() => {
+        if (!device) {
+            initializeDevice();
+        }
+    }, [device, initializeDevice]);
 
     const handleKeyPress = (key: string) => {
-        console.log("Key pressed:", key);
         if (phoneNumber.length < 15) {
-            setPhoneNumber((prev) => prev + key);
+            setPhoneNumber(phoneNumber + key);
         }
     };
 
     const handleDelete = () => {
-        setPhoneNumber((prev) => prev.slice(0, -1));
+        setPhoneNumber(phoneNumber.slice(0, -1));
     };
 
-    const handleCall = () => {
+    const handleCall = async () => {
         if (phoneNumber) {
-            console.log("Calling:", phoneNumber);
-            onCallStart(phoneNumber);
+            await initiateCall();
+            onCallStart();
         }
     };
 
@@ -47,6 +61,15 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
     return (
         <Card title="Dialer" className="h-full">
             <div className="flex h-full flex-col justify-between pt-4">
+                {/* Status Display */}
+                <div className="text-center h-6 text-sm text-gray-500">
+                    {errorMessage ? (
+                        <span className="text-red-500">{errorMessage}</span>
+                    ) : (
+                        <span>{callStatus === 'idle' ? 'Ready' : callStatus}</span>
+                    )}
+                </div>
+
                 {/* Input Display */}
                 <div
                     className="relative flex h-[56px] w-full items-center justify-center border border-[rgba(17,17,17,0.05)] px-4 mb-2 rounded-[46px] backdrop-blur-[42px]"
@@ -107,12 +130,12 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
                 <div className="flex justify-center pb-2">
                     <button
                         onClick={handleCall}
-                        disabled={!phoneNumber}
-                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-[10px] transition-all active:scale-95 ${phoneNumber
-                                ? "bg-[#1DB013] text-white shadow-[0_4px_14px_0_rgba(254,100,31,0.30)] hover:bg-[#16A34A]"
-                                : "cursor-not-allowed bg-gray-200 text-gray-400 shadow-none"
+                        disabled={!phoneNumber || !device}
+                        className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-[10px] transition-all active:scale-95 ${phoneNumber && device
+                            ? "bg-[#1DB013] text-white shadow-[0_4px_14px_0_rgba(254,100,31,0.30)] hover:bg-[#16A34A]"
+                            : "cursor-not-allowed bg-gray-200 text-gray-400 shadow-none"
                             }`}
-                        style={phoneNumber ? { boxShadow: "0px 4px 14px 0px rgba(254, 100, 31, 0.30)" } : {}}
+                        style={phoneNumber && device ? { boxShadow: "0px 4px 14px 0px rgba(254, 100, 31, 0.30)" } : {}}
                     >
                         <Phone className="h-5 w-5 fill-current" />
                         <span className="font-sans text-base font-semibold">Call</span>

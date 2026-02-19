@@ -1,0 +1,24 @@
+:root {
+  background-color: #F3F4F6;
+}
+
+.bg-color {
+  height: 100vh;
+  overflow-y: scroll;
+}
+
+/* Hide scrollbar for WebKit-based browsers (Chrome, Safari, etc.) */
+.bg-color::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+/* Optional: Hide scrollbar for Firefox */
+.bg-color {
+  scrollbar-width: none;
+}
+
+/* Optional: Hide scrollbar for Internet Explorer and Edge */
+.bg-color {
+  -ms-overflow-style: none;
+}
