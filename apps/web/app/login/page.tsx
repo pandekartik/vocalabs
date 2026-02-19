@@ -11,14 +11,26 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
     const [email, setEmail] = useState("");
-    const { login } = useAuth();
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const { login, isLoading } = useAuth();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        login(email);
+        setError(null);
+
+        if (!email || !password) {
+            setError("Please enter both email and password.");
+            return;
+        }
+
+        try {
+            await login(email, password);
+        } catch (err: any) {
+            setError(err.message || "Login failed. Please try again.");
+        }
     };
 
-    // Gradient from user request: linear-gradient(180deg, #FFE0D1 0%, #DCEDFF 100%)
     return (
         <div
             className="min-h-screen w-full flex items-center justify-center p-4 bg-[linear-gradient(180deg,#FFE0D1_0%,#DCEDFF_100%)]"
@@ -32,7 +44,7 @@ export default function LoginPage() {
                         alt="Voca Labs"
                         width={180}
                         height={50}
-                        className="h-auto w-auto" // Maintain aspect ratio
+                        className="h-auto w-auto"
                         priority
                     />
                 </div>
@@ -42,6 +54,13 @@ export default function LoginPage() {
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome back</h1>
                     <p className="text-gray-500 text-sm">Please enter your details to sign in.</p>
                 </div>
+
+                {/* Error Message */}
+                {error && (
+                    <div className="w-full mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm text-center">
+                        {error}
+                    </div>
+                )}
 
                 {/* Form */}
                 <form className="w-full space-y-6" onSubmit={handleLogin}>
@@ -77,9 +96,12 @@ export default function LoginPage() {
                                 <InputWithIcon
                                     type={showPassword ? "text" : "password"}
                                     id="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     placeholder="Enter your password"
                                     icon={<LockKeyhole size={20} />}
                                     className="border-gray-200 bg-[#F5F6FA] text-black pr-10"
+                                    required
                                 />
                                 <button
                                     type="button"
@@ -109,35 +131,23 @@ export default function LoginPage() {
 
                         <button
                             type="submit"
-                            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-[#FF6B00] hover:bg-[#E65A00] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                            disabled={isLoading}
+                            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-[#FF6B00] hover:bg-[#E65A00] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Sign In
+                            {isLoading ? (
+                                <span className="flex items-center gap-2">
+                                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                    Signing In...
+                                </span>
+                            ) : (
+                                "Sign In"
+                            )}
                         </button>
                     </div>
                 </form>
-
-                {/* Dummy Credentials */}
-                <div className="mt-8 pt-6 border-t border-gray-100 w-full">
-                    <p className="text-xs text-gray-400 text-center mb-4 uppercase tracking-wider font-semibold">Demo Credentials</p>
-                    <div className="grid grid-cols-2 gap-2">
-                        {/* We need to import MOCK_USERS, but for now hardcode to avoid import issues if verify fails */}
-                        {[
-                            { label: "Agent", email: "agent@vocalabs.com", role: "Agent" },
-                            { label: "Supervisor", email: "supervisor@vocalabs.com", role: "Manager" },
-                            { label: "Org Admin", email: "admin@vocalabs.com", role: "Admin" },
-                            { label: "Platform", email: "platform@vocalabs.com", role: "Super Admin" }
-                        ].map((cred) => (
-                            <button
-                                key={cred.email}
-                                onClick={() => setEmail(cred.email)}
-                                className="text-left p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200"
-                            >
-                                <p className="text-xs font-bold text-gray-700">{cred.label}</p>
-                                <p className="text-[10px] text-gray-500 truncate">{cred.email}</p>
-                            </button>
-                        ))}
-                    </div>
-                </div>
             </div>
         </div>
     );
