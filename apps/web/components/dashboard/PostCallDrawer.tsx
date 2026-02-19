@@ -1,7 +1,6 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { motion, AnimatePresence } from "framer-motion";
 import { X, Play, Clock, Phone, User, Calendar, Bell, Pencil, Check } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
 import { Button } from "@repo/ui/button";
