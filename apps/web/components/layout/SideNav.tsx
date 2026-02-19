@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@repo/ui/lib/utils";
@@ -10,6 +11,12 @@ import {
     Bell,
     Settings,
     LogOut,
+    LayoutDashboard,
+    Building2,
+    Users,
+    Shield,
+    PhoneCall,
+    Voicemail,
     type LucideIcon,
 } from "lucide-react";
 
@@ -27,7 +34,7 @@ function NavItem({ icon: Icon, label, href, isActive }: NavItemProps) {
             className={cn(
                 "flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200",
                 isActive
-                    ? "bg-[#FE641F] text-white shadow-[0px_4px_14px_0px_rgba(254,100,31,0.3)]"
+                    ? "bg-[#FE641F] text-white shadow-[0px_4px_14px_0_rgba(254,100,31,0.3)]"
                     : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
             )}
         >
@@ -37,16 +44,79 @@ function NavItem({ icon: Icon, label, href, isActive }: NavItemProps) {
     );
 }
 
-export function SideNav() {
-    const pathname = usePathname();
-
-    const navItems = [
+// Menu configurations for each role
+const MENU_ITEMS = {
+    // 1. Platform Admin
+    "PLATFORM_ADMIN": [
+        { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+        { icon: Building2, label: "Organizations", href: "/organizations" },
+        { icon: Users, label: "Users", href: "/users" },
+        { icon: Phone, label: "Telephony", href: "/telephony" },
+        { icon: Shield, label: "Security", href: "/security" },
+        { icon: Settings, label: "Settings", href: "/settings" },
+    ],
+    // 2. Org Admin
+    "ORG_ADMIN": [
+        { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+        { icon: Users, label: "Users", href: "/users" },
+        { icon: BarChart, label: "Analytics", href: "/analytics" },
+        { icon: Settings, label: "Settings", href: "/settings" },
+    ],
+    // 3. Supervisor (MANAGER in reference, assumes SUPERVISOR here)
+    "SUPERVISOR": [
+        { icon: Phone, label: "Dialer", href: "/" },
+        { icon: Users, label: "Team", href: "/team" },
+        { icon: Voicemail, label: "Voicemails", href: "/voicemails" },
+        { icon: BarChart, label: "Analytics", href: "/analytics" },
+        { icon: Bell, label: "Reminders", href: "/reminders" },
+        { icon: Settings, label: "Settings", href: "/settings" },
+    ],
+    // 4. Agent
+    "AGENT": [
         { icon: Phone, label: "Dialer", href: "/" },
         { icon: Contact, label: "Call History", href: "/call-history" },
         { icon: BarChart, label: "Analytics", href: "/analytics" },
         { icon: Bell, label: "Reminders", href: "/reminders" },
         { icon: Settings, label: "Settings", href: "/settings" },
-    ];
+    ],
+};
+
+type UserRole = keyof typeof MENU_ITEMS;
+
+export function SideNav() {
+    const pathname = usePathname();
+    const [role, setRole] = useState<UserRole | null>(null);
+
+    useEffect(() => {
+        try {
+            // Fetch role from localStorage similar to reference code
+            const userStr = localStorage.getItem("user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const userRole = user?.role?.toUpperCase();
+
+                // Map "MANAGER" from reference to "SUPERVISOR" if needed, 
+                // or just accept strictly what's in local storage.
+                // Assuming the new roles will be set correctly in the backend/login.
+                // For fallback/compatibility:
+                if (userRole === 'MANAGER') setRole('SUPERVISOR');
+                else if (MENU_ITEMS[userRole as UserRole]) {
+                    setRole(userRole as UserRole);
+                } else {
+                    // Default fallback or handle unknown roles
+                    setRole('AGENT');
+                }
+            } else {
+                // Default to AGENT if not logged in (for now/dev)
+                setRole('AGENT');
+            }
+        } catch (e) {
+            console.error("Failed to parse user role", e);
+            setRole('AGENT');
+        }
+    }, []);
+
+    const navItems = role ? MENU_ITEMS[role] : [];
 
     return (
         <aside className="fixed left-6 top-[84px] h-[calc(100vh-108px)] w-[193px] shrink-0">
