@@ -83,6 +83,49 @@ export default function DebugCallControl() {
                 >
                     Reset
                 </button>
+
+                <div className="h-px bg-white/20 my-1" />
+
+                <button
+                    onClick={() => {
+                        const user = { first_name: "Kartik", last_name: "Pande", role: "AGENT" };
+                        localStorage.setItem("user", JSON.stringify(user));
+                        window.location.reload();
+                    }}
+                    className="px-3 py-2 bg-indigo-600/80 hover:bg-indigo-600 rounded text-left transition-colors font-medium border border-white/20"
+                >
+                    Switch to Agent (Kartik)
+                </button>
+                <button
+                    onClick={() => {
+                        const user = { first_name: "Saif", last_name: "Khan", role: "SUPERVISOR", manager_id: "sup-001" }; // Using SUPERVISOR to match SideNav key
+                        localStorage.setItem("user", JSON.stringify(user));
+                        window.location.reload();
+                    }}
+                    className="px-3 py-2 bg-indigo-600/80 hover:bg-indigo-600 rounded text-left transition-colors font-medium border border-white/20"
+                >
+                    Switch to Supervisor (Saif)
+                </button>
+                <button
+                    onClick={() => {
+                        const user = { first_name: "Atharv", last_name: "Pande", role: "ORG_ADMIN" };
+                        localStorage.setItem("user", JSON.stringify(user));
+                        window.location.reload();
+                    }}
+                    className="px-3 py-2 bg-indigo-600/80 hover:bg-indigo-600 rounded text-left transition-colors font-medium border border-white/20"
+                >
+                    Switch to Org Admin (Atharv)
+                </button>
+                <button
+                    onClick={() => {
+                        const user = { first_name: "Supriya", last_name: "Pande", role: "PLATFORM_ADMIN" };
+                        localStorage.setItem("user", JSON.stringify(user));
+                        window.location.reload();
+                    }}
+                    className="px-3 py-2 bg-indigo-600/80 hover:bg-indigo-600 rounded text-left transition-colors font-medium border border-white/20"
+                >
+                    Switch to Plat. Admin (Supriya)
+                </button>
             </div>
         </div>
     );
