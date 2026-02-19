@@ -1,6 +1,6 @@
 
 import { useCallStore } from "@/store/useCallStore";
-import { Button } from "@repo/ui/components/ui/button";
+import { Button } from "@repo/ui/button";
 
 export default function DebugCallControl() {
     const { setMockState } = useCallStore();
