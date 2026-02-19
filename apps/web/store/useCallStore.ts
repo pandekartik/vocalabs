@@ -22,6 +22,9 @@ interface CallState {
     incomingCall: Call | null;
     streamSid: string | null;
 
+    showPostCallDrawer: boolean;
+    setShowPostCallDrawer: (show: boolean) => void;
+
     // Actions
     initializeDevice: () => Promise<void>;
     setPhoneNumber: (number: string) => void;
@@ -50,6 +53,7 @@ export const useCallStore = create<CallState>((set, get) => ({
     phoneNumber: '',
     errorMessage: null,
     streamSid: null,
+    showPostCallDrawer: false,
 
     initializeDevice: async () => {
         try {
@@ -230,7 +234,8 @@ export const useCallStore = create<CallState>((set, get) => ({
             callStatus: 'idle',
             isMuted: false,
             isOnHold: false,
-            isRecordingPaused: false
+            isRecordingPaused: false,
+            showPostCallDrawer: true // Trigger post-call drawer
         });
     },
 
@@ -261,9 +266,12 @@ export const useCallStore = create<CallState>((set, get) => ({
             transcript: [],
             phoneNumber: '',
             errorMessage: null,
-            incomingCall: null
+            incomingCall: null,
+            showPostCallDrawer: false
         });
     },
+
+    setShowPostCallDrawer: (show) => set({ showPostCallDrawer: show }),
 
     setMockState: (state: Partial<CallState>) => set((prev) => ({ ...prev, ...state }))
 }));

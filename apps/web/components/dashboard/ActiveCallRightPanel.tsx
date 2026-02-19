@@ -17,9 +17,9 @@ export default function ActiveCallRightPanel() {
     }, [transcript]);
 
     return (
-        <div className="grid h-full grid-rows-3 gap-4">
+        <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1">
             {/* Live Transcript Card */}
-            <Card title="Live Transcript" className="min-h-0">
+            <Card title="Live Transcript" className="flex-1 min-h-[200px] shrink-0">
                 <div className="h-full rounded-2xl border border-[rgba(17,17,17,0.05)] p-4 overflow-y-auto backdrop-blur-[42px]"
                     style={{
                         background: "linear-gradient(96deg, rgba(17, 17, 17, 0.05) -4.09%, rgba(17, 17, 17, 0.02) 105.58%)"
@@ -41,7 +41,7 @@ export default function ActiveCallRightPanel() {
             </Card>
 
             {/* Notes Card */}
-            <Card title="Notes" className="min-h-0">
+            <Card title="Notes" className="flex-1 min-h-[200px] shrink-0">
                 <div className="h-full rounded-2xl border border-[rgba(17,17,17,0.05)] p-4 backdrop-blur-[42px]"
                     style={{
                         background: "linear-gradient(96deg, rgba(17, 17, 17, 0.05) -4.09%, rgba(17, 17, 17, 0.02) 105.58%)"
@@ -55,7 +55,7 @@ export default function ActiveCallRightPanel() {
             </Card>
 
             {/* Tagging ID Card */}
-            <Card title="Tagging ID" className="min-h-0">
+            <Card title="Tagging ID" className="flex-1 min-h-[200px] shrink-0">
                 <div className="h-full rounded-2xl border border-[rgba(17,17,17,0.05)] p-4 backdrop-blur-[42px]"
                     style={{
                         background: "linear-gradient(96deg, rgba(17, 17, 17, 0.05) -4.09%, rgba(17, 17, 17, 0.02) 105.58%)"

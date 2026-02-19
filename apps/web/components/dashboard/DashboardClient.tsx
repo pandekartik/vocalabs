@@ -11,9 +11,18 @@ import { useCallStore } from "@/store/useCallStore";
 import DebugCallControl from "@/components/dashboard/DebugCallControl";
 
 import IncomingCallPopup from "@/components/IncomingCallPopup";
+import PostCallDrawer from "@/components/dashboard/PostCallDrawer";
 
 export default function DashboardClient() {
-    const { callStatus, initializeDevice, incomingCall, acceptIncomingCall, rejectIncomingCall } = useCallStore();
+    const {
+        callStatus,
+        initializeDevice,
+        incomingCall,
+        acceptIncomingCall,
+        rejectIncomingCall,
+        showPostCallDrawer,
+        setShowPostCallDrawer
+    } = useCallStore();
     const isCallActive = callStatus !== 'idle';
 
     useEffect(() => {
@@ -23,7 +32,7 @@ export default function DashboardClient() {
 
     return (
         <div className="flex h-full gap-4">
-            <div className="flex w-[400px] shrink-0 flex-col gap-4">
+            <div className="flex w-[400px] shrink-0 flex-col gap-4 overflow-y-auto pr-1">
 
                 {!isCallActive ? (
                     <div className="flex-1 min-h-0">
@@ -34,7 +43,7 @@ export default function DashboardClient() {
                         <div className="shrink-0">
                             <ActiveCallCard onEndCall={() => { }} />
                         </div>
-                        <div className="flex-1 min-h-0">
+                        <div className="flex-1 min-h-[180px] shrink-0">
                             <CallInputCard />
                         </div>
                     </div>
@@ -50,6 +59,11 @@ export default function DashboardClient() {
                 onDecline={rejectIncomingCall}
                 onClose={rejectIncomingCall}
                 callerName={incomingCall?.parameters?.From || "Unknown Caller"}
+            />
+
+            <PostCallDrawer
+                isOpen={showPostCallDrawer}
+                onClose={() => setShowPostCallDrawer(false)}
             />
 
             <DebugCallControl />
