@@ -44,7 +44,7 @@
   }
 
   body {
-    background: var(--background);
+    background: var(--background) no-repeat fixed center center / cover;
     color: hsl(var(--foreground));
     font-size: 14px;
     font-family: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;

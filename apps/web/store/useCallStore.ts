@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { Device, Call } from '@twilio/voice-sdk';
 import { APIUSER, APIUSERDIAL } from '@/lib/axios';
@@ -12,6 +13,8 @@ interface CallState {
     connection: Call | null;
     callStatus: 'idle' | 'registered' | 'connecting' | 'ringing' | 'in-progress' | 'ended' | 'error';
     isMuted: boolean;
+    isOnHold: boolean;
+    isRecordingPaused: boolean;
     duration: number;
     transcript: TranscriptMessage[];
     phoneNumber: string;
@@ -24,8 +27,11 @@ interface CallState {
     initiateCall: () => Promise<void>;
     endCall: () => void;
     toggleMute: () => void;
+    toggleHold: () => void;
+    toggleRecording: () => void;
     addTranscriptMessage: (message: TranscriptMessage) => void;
     resetState: () => void;
+    setMockState: (state: Partial<CallState>) => void;
 }
 
 export const useCallStore = create<CallState>((set, get) => ({
@@ -33,6 +39,8 @@ export const useCallStore = create<CallState>((set, get) => ({
     connection: null,
     callStatus: 'idle',
     isMuted: false,
+    isOnHold: false,
+    isRecordingPaused: false,
     duration: 0,
     transcript: [],
     phoneNumber: '',
@@ -41,23 +49,6 @@ export const useCallStore = create<CallState>((set, get) => ({
 
     initializeDevice: async () => {
         try {
-            // Check for token in localStorage (or where authentication is stored)
-            // For now, assuming token is in localStorage based on reference code
-            // In a real app, you might get this from a session or auth hook
-            // NOTE: The reference code uses localStorage.getItem("token")
-            // We should ensure this token exists.
-
-            // Placeholder: In a real implementation, we need a valid token mechanism.s
-            // For now, we'll try to fetch it as in the reference logic.
-
-            // const token = localStorage.getItem("token");
-            // if (!token) throw new Error("No authentication token found");
-
-            // For this implementation step, we'll assume the user is authenticated 
-            // and we can call the endpoint to get the Twilio capability token.
-            // We need the user_id to fetch the token.
-            // Based on reference: const userDetails = JSON.parse(localStorage.getItem("user"));
-
             const userStr = localStorage.getItem("user");
             const token = localStorage.getItem("token");
 
@@ -78,8 +69,6 @@ export const useCallStore = create<CallState>((set, get) => ({
 
             const device = new Device(fetchedToken, {
                 codecPreferences: ["opus", "pcmu"] as any,
-                // debug: true, // Removed as it causes type error
-                // region: "us1", // Optional based on reference
                 logLevel: "debug",
             });
 
@@ -94,8 +83,6 @@ export const useCallStore = create<CallState>((set, get) => ({
             });
 
             device.on("incoming", (call) => {
-                // Auto-accept incoming calls logic can be added here if needed
-                // For now, we focus on outbound as per Dialer requirements
                 console.log("Incoming call", call);
             });
 
@@ -136,25 +123,23 @@ export const useCallStore = create<CallState>((set, get) => ({
                 agent_name: `${userDetails?.first_name} ${userDetails?.last_name}`,
                 agent_id: `${userDetails?.user_id}`,
                 supervisor_id: userDetails?.manager_id,
-                supervisor_name: "Test User", // Placeholder from reference
+                supervisor_name: "Test User",
                 customer_id: userDetails?.customer_id,
                 organisation_id: userDetails?.organisation_id,
                 domain: userDetails?.domain_id,
                 processes: userDetails?.processes,
             };
 
-            // 1. Call backend to initiate call and get WebSocket URL
             const response = await APIUSERDIAL.post("/call", payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            const { frontend_url, frontend_intervention_url, frontend_feedback_url } = response.data;
+            const { frontend_url } = response.data;
             if (!frontend_url) throw new Error("No WebSocket URL received");
 
             const streamSid = frontend_url.split("/").pop();
             set({ streamSid });
 
-            // 2. Setup WebSocket for transcription
             const ws = new WebSocket(frontend_url);
             ws.onopen = () => console.log("WebSocket connected");
             ws.onmessage = (event) => {
@@ -176,20 +161,14 @@ export const useCallStore = create<CallState>((set, get) => ({
                 }
             };
 
-            // 3. Connect Twilio Device
             const connection = await device.connect({ params: payload });
             set({ connection });
 
             connection.on("accept", () => {
                 set({ callStatus: 'in-progress' });
-                // Start timer
                 const timer = setInterval(() => {
                     set((state) => ({ duration: state.duration + 1 }));
                 }, 1000);
-
-                // Store timer ID on the instance (or use a ref if this was a component)
-                // Since this is a store, we might need a separate way to clear interval.
-                // We'll attach it to the connection object loosely or handle cleanup in endCall
                 (connection as any)._timer = timer;
             });
 
@@ -215,16 +194,13 @@ export const useCallStore = create<CallState>((set, get) => ({
             if ((connection as any)._timer) clearInterval((connection as any)._timer);
             connection.disconnect();
         }
-        // Also close WebSocket if stored (we need to store WS instance in state to close it properly)
-        // For simplicity now, we rely on the server closing it or browser cleanup, 
-        // but ideally we should track WS in state too.
 
         set({
             connection: null,
             callStatus: 'idle',
-            // We might want to keep transcript for review
-            // duration: 0, 
-            isMuted: false
+            isMuted: false,
+            isOnHold: false,
+            isRecordingPaused: false
         });
     },
 
@@ -232,8 +208,16 @@ export const useCallStore = create<CallState>((set, get) => ({
         const { connection, isMuted } = get();
         if (connection) {
             connection.mute(!isMuted);
-            set({ isMuted: !isMuted });
         }
+        set({ isMuted: !isMuted });
+    },
+
+    toggleHold: () => {
+        set((state) => ({ isOnHold: !state.isOnHold }));
+    },
+
+    toggleRecording: () => {
+        set((state) => ({ isRecordingPaused: !state.isRecordingPaused }));
     },
 
     addTranscriptMessage: (message) => {
@@ -248,5 +232,7 @@ export const useCallStore = create<CallState>((set, get) => ({
             phoneNumber: '',
             errorMessage: null
         });
-    }
+    },
+
+    setMockState: (state: Partial<CallState>) => set((prev) => ({ ...prev, ...state }))
 }));

@@ -21,7 +21,7 @@ function Logo() {
 
 export function TopBar() {
     return (
-        <header className="flex h-[60px] w-full items-center justify-between border border-white/10 px-6 py-3 shadow-[0_4px_8px_0_rgba(26,26,26,0.12)] backdrop-blur-[42px]" style={{ background: "linear-gradient(95deg, rgba(255, 255, 255, 0.40) 0%, rgba(255, 255, 255, 0.80) 100%)" }}>
+        <header className="sticky top-0 z-50 flex h-[60px] w-full items-center justify-between border-b border-white/10 px-6 py-3 shadow-[0_4px_8px_0_rgba(26,26,26,0.12)] backdrop-blur-[42px]" style={{ background: "linear-gradient(95deg, rgba(255, 255, 255, 0.40) 0%, rgba(255, 255, 255, 0.80) 100%)" }}>
             <Logo />
 
             {/* Center Stats */}
