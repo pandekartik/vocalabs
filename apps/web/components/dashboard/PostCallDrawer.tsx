@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Play, Clock, Phone, User, Calendar, Bell, Pencil, Check } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
@@ -22,7 +23,7 @@ interface PostCallDrawerProps {
 
 export default function PostCallDrawer({ isOpen, onClose, callData }: PostCallDrawerProps) {
     // Mock data if not provided
-    const data = {
+    const defaultData = {
         callerName: callData?.callerName || "Unknown",
         phoneNumber: callData?.phoneNumber || "+1-555-0456",
         duration: callData?.duration || "30 Mins",
@@ -31,6 +32,25 @@ export default function PostCallDrawer({ isOpen, onClose, callData }: PostCallDr
         disconnectedBy: callData?.disconnectedBy || "Agent",
         tags: callData?.tags || ["TAG-0012", "TAG-0012", "TAG-0012", "TAG-0012", "TAG-0012", "TAG-0012"],
         notes: callData?.notes || "Customer interested in premium plan. Price concern discussed. Follow-up needed on features."
+    };
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [notes, setNotes] = useState(defaultData.notes);
+    const [tags, setTags] = useState(defaultData.tags.join(", "));
+
+    // Reset state when isOpen changes or callData updates
+    useEffect(() => {
+        if (isOpen) {
+            setNotes(callData?.notes || defaultData.notes);
+            setTags((callData?.tags || defaultData.tags).join(", "));
+            setIsEditing(false);
+        }
+    }, [isOpen, callData]);
+
+    const handleSave = () => {
+        // Here you would typically save the data to the backend
+        setIsEditing(false);
+        console.log("Saved:", { notes, tags: tags.split(",").map(t => t.trim()) });
     };
 
     return (
@@ -67,15 +87,15 @@ export default function PostCallDrawer({ isOpen, onClose, callData }: PostCallDr
 
                             {/* Phone Number Display */}
                             <div className="flex items-center justify-center p-4 rounded-2xl border border-[#111]/5 bg-gradient-to-br from-[#111]/5 to-[#111]/[0.02] backdrop-blur-[42px]">
-                                <span className="text-[#111] font-sans font-medium text-lg">{data.phoneNumber}</span>
+                                <span className="text-[#111] font-sans font-medium text-lg">{defaultData.phoneNumber}</span>
                             </div>
 
                             {/* Info Grid */}
                             <div className="grid grid-cols-2 gap-2">
-                                <InfoItem label="Call ID" value={data.callId} />
-                                <InfoItem label="Call Duration" value={data.duration} />
-                                <InfoItem label="Disconnected by" value={data.disconnectedBy} />
-                                <InfoItem label="Time" value={data.time} />
+                                <InfoItem label="Call ID" value={defaultData.callId} />
+                                <InfoItem label="Call Duration" value={defaultData.duration} />
+                                <InfoItem label="Disconnected by" value={defaultData.disconnectedBy} />
+                                <InfoItem label="Time" value={defaultData.time} />
                             </div>
 
                             {/* Call Recording Player */}
@@ -92,12 +112,18 @@ export default function PostCallDrawer({ isOpen, onClose, callData }: PostCallDr
                             {/* Tagging IDs */}
                             <div className="flex flex-col gap-1">
                                 <span className="text-slate-500 font-sans text-xs">Tagging IDs</span>
-                                <div className="p-3 rounded-xl border border-[#111]/5 bg-gradient-to-br from-[#111]/5 to-[#111]/[0.02] backdrop-blur-[42px] flex flex-wrap gap-2">
-                                    {data.tags.map((tag, i) => (
-                                        <div key={i} className="px-2 py-1 bg-white rounded-lg border border-[#111]/5 flex items-center justify-center">
-                                            <span className="text-[#111] font-sans font-medium text-sm">{tag}</span>
-                                        </div>
-                                    ))}
+                                <div className="p-3 rounded-xl border border-[#111]/5 bg-gradient-to-br from-[#111]/5 to-[#111]/[0.02] backdrop-blur-[42px]">
+                                    {isEditing ? (
+                                        <textarea
+                                            value={tags}
+                                            onChange={(e) => setTags(e.target.value)}
+                                            className="w-full h-24 bg-transparent border-none outline-none text-[#111] font-sans font-medium text-sm resize-none"
+                                        />
+                                    ) : (
+                                        <span className="text-[#111] font-sans font-medium text-sm block whitespace-pre-wrap">
+                                            {tags}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -105,26 +131,40 @@ export default function PostCallDrawer({ isOpen, onClose, callData }: PostCallDr
                             <div className="flex flex-col gap-1">
                                 <span className="text-slate-500 font-sans text-xs">Notes</span>
                                 <div className="p-3 rounded-xl border border-[#111]/5 bg-gradient-to-br from-[#111]/5 to-[#111]/[0.02] backdrop-blur-[42px]">
-                                    <p className="text-[#111] font-sans font-medium text-sm whitespace-pre-wrap">
-                                        {data.notes}
-                                    </p>
+                                    {isEditing ? (
+                                        <textarea
+                                            value={notes}
+                                            onChange={(e) => setNotes(e.target.value)}
+                                            className="w-full h-24 bg-transparent border-none outline-none text-[#111] font-sans font-medium text-sm resize-none"
+                                        />
+                                    ) : (
+                                        <p className="text-[#111] font-sans font-medium text-sm whitespace-pre-wrap">
+                                            {notes}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
                         {/* Footer Actions */}
                         <div className="p-6 border-t border-[#111]/5 flex items-center justify-between mt-auto">
-                            <button className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] shadow-[0px_4px_14px_0px_rgba(254,100,31,0.3)] bg-white border border-[#111]/5 hover:bg-gray-50 transition-colors">
-                                <Bell size={16} />
+                            <button className="flex items-center gap-2 px-0 py-2.5 bg-transparent hover:opacity-70 transition-opacity">
+                                <Bell size={16} className="text-[#111]" />
                                 <span className="text-[#111] font-sans font-semibold text-sm">Set Reminder</span>
                             </button>
 
                             <div className="flex gap-3">
-                                <button className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] shadow-[0px_4px_14px_0px_rgba(254,100,31,0.3)] bg-white border border-[#fe641f] hover:bg-orange-50 transition-colors">
+                                <button
+                                    onClick={() => setIsEditing(true)}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] shadow-[0px_4px_14px_0px_rgba(254,100,31,0.3)] bg-white border border-[#fe641f] hover:bg-orange-50 transition-colors"
+                                >
                                     <Pencil size={16} />
                                     <span className="text-[#111] font-sans font-semibold text-sm">Edit</span>
                                 </button>
-                                <button className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] shadow-[0px_4px_14px_0px_rgba(254,100,31,0.3)] bg-[#fe641f] hover:bg-[#e55a1b] transition-colors">
+                                <button
+                                    onClick={handleSave}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] shadow-[0px_4px_14px_0px_rgba(254,100,31,0.3)] bg-[#fe641f] hover:bg-[#e55a1b] transition-colors"
+                                >
                                     <Check size={16} className="text-white" />
                                     <span className="text-white font-sans font-semibold text-sm">Save</span>
                                 </button>

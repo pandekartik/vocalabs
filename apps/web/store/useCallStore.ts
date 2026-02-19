@@ -24,6 +24,8 @@ interface CallState {
 
     showPostCallDrawer: boolean;
     setShowPostCallDrawer: (show: boolean) => void;
+    showVoicemailToast: boolean;
+    setShowVoicemailToast: (show: boolean) => void;
 
     // Actions
     initializeDevice: () => Promise<void>;
@@ -54,6 +56,7 @@ export const useCallStore = create<CallState>((set, get) => ({
     errorMessage: null,
     streamSid: null,
     showPostCallDrawer: false,
+    showVoicemailToast: false,
 
     initializeDevice: async () => {
         try {
@@ -217,7 +220,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         const { incomingCall } = get();
         if (incomingCall) {
             incomingCall.reject();
-            set({ incomingCall: null });
+            set({ incomingCall: null, showVoicemailToast: true });
         }
     },
 
@@ -267,11 +270,13 @@ export const useCallStore = create<CallState>((set, get) => ({
             phoneNumber: '',
             errorMessage: null,
             incomingCall: null,
-            showPostCallDrawer: false
+            showPostCallDrawer: false,
+            showVoicemailToast: false
         });
     },
 
     setShowPostCallDrawer: (show) => set({ showPostCallDrawer: show }),
+    setShowVoicemailToast: (show) => set({ showVoicemailToast: show }),
 
     setMockState: (state: Partial<CallState>) => set((prev) => ({ ...prev, ...state }))
 }));

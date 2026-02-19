@@ -12,6 +12,7 @@ import DebugCallControl from "@/components/dashboard/DebugCallControl";
 
 import IncomingCallPopup from "@/components/IncomingCallPopup";
 import PostCallDrawer from "@/components/dashboard/PostCallDrawer";
+import VoicemailToast from "@/components/VoicemailToast";
 
 export default function DashboardClient() {
     const {
@@ -21,7 +22,9 @@ export default function DashboardClient() {
         acceptIncomingCall,
         rejectIncomingCall,
         showPostCallDrawer,
-        setShowPostCallDrawer
+        setShowPostCallDrawer,
+        showVoicemailToast,
+        setShowVoicemailToast
     } = useCallStore();
     const isCallActive = callStatus !== 'idle';
 
@@ -64,6 +67,11 @@ export default function DashboardClient() {
             <PostCallDrawer
                 isOpen={showPostCallDrawer}
                 onClose={() => setShowPostCallDrawer(false)}
+            />
+
+            <VoicemailToast
+                isVisible={showVoicemailToast}
+                onClose={() => setShowVoicemailToast(false)}
             />
 
             <DebugCallControl />
