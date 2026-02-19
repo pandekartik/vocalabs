@@ -19,6 +19,7 @@ interface CallState {
     transcript: TranscriptMessage[];
     phoneNumber: string;
     errorMessage: string | null;
+    incomingCall: Call | null;
     streamSid: string | null;
 
     // Actions
@@ -26,6 +27,8 @@ interface CallState {
     setPhoneNumber: (number: string) => void;
     initiateCall: () => Promise<void>;
     endCall: () => void;
+    acceptIncomingCall: () => void;
+    rejectIncomingCall: () => void;
     toggleMute: () => void;
     toggleHold: () => void;
     toggleRecording: () => void;
@@ -37,6 +40,7 @@ interface CallState {
 export const useCallStore = create<CallState>((set, get) => ({
     device: null,
     connection: null,
+    incomingCall: null,
     callStatus: 'idle',
     isMuted: false,
     isOnHold: false,
@@ -84,6 +88,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
             device.on("incoming", (call) => {
                 console.log("Incoming call", call);
+                set({ incomingCall: call });
             });
 
             await device.register();
@@ -188,6 +193,30 @@ export const useCallStore = create<CallState>((set, get) => ({
         }
     },
 
+    acceptIncomingCall: () => {
+        const { incomingCall } = get();
+        if (incomingCall) {
+            incomingCall.accept();
+            set({ connection: incomingCall, incomingCall: null, callStatus: 'in-progress' });
+            // Setup listeners or status for the accepted call if needed
+            const timer = setInterval(() => {
+                set((state) => ({ duration: state.duration + 1 }));
+            }, 1000);
+            (incomingCall as any)._timer = timer;
+            incomingCall.on("disconnect", () => {
+                get().endCall();
+            });
+        }
+    },
+
+    rejectIncomingCall: () => {
+        const { incomingCall } = get();
+        if (incomingCall) {
+            incomingCall.reject();
+            set({ incomingCall: null });
+        }
+    },
+
     endCall: () => {
         const { connection } = get();
         if (connection) {
@@ -197,6 +226,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
         set({
             connection: null,
+            incomingCall: null,
             callStatus: 'idle',
             isMuted: false,
             isOnHold: false,
@@ -230,7 +260,8 @@ export const useCallStore = create<CallState>((set, get) => ({
             duration: 0,
             transcript: [],
             phoneNumber: '',
-            errorMessage: null
+            errorMessage: null,
+            incomingCall: null
         });
     },
 

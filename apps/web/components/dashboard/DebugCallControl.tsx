@@ -40,6 +40,19 @@ export default function DebugCallControl() {
                     State: Active Call
                 </button>
                 <button
+                    onClick={() => setMockState({
+                        incomingCall: {
+                            parameters: { From: '+1-555-0123' },
+                            accept: () => console.log('Mock Accept'),
+                            reject: () => console.log('Mock Reject'),
+                            on: () => { }
+                        } as any
+                    })}
+                    className="px-2 py-1 bg-purple-600 rounded hover:bg-purple-700 text-left"
+                >
+                    State: Incoming Call
+                </button>
+                <button
                     onClick={() => setMockState({ callStatus: 'idle', phoneNumber: '', duration: 0, errorMessage: null })}
                     className="px-2 py-1 bg-gray-600 rounded hover:bg-gray-700 text-left mt-2"
                 >
