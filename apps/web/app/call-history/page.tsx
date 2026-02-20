@@ -8,24 +8,59 @@ import { MobileCallCard } from "./components/MobileCallCard";
 import { CallDetailModal } from "./components/CallDetailModal";
 import { CallDirection, CallOutcome, RecordingStatus, CallRecord } from "./types";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { useRouter } from "next/navigation";
 
 export default function CallHistoryPage() {
-    const [data] = useState<CallRecord[]>(CALL_HISTORY_MOCK_DATA);
+    const router = useRouter();
+    const [data, setData] = useState<CallRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [directionFilter, setDirectionFilter] = useState("all");
     const [outcomeFilter, setOutcomeFilter] = useState("all");
-    const [recordingFilter, setRecordingFilter] = useState("all");
-    const [notesFilter, setNotesFilter] = useState("all");
+
+    React.useEffect(() => {
+        const fetchCalls = async () => {
+            try {
+                // Read token from localStorage if available, or just rely on secure cookies if that's how it's handled.
+                // Assuming bearer token needs to be passed, using a placeholder or common retrieval method
+                // For this example, relying on the browser to send cookies, or extracting from local storage
+                const token = localStorage.getItem('token') || '';
+
+                const response = await fetch('https://api.vocalabstech.com/calls/my-calls', {
+                    headers: {
+                        'accept': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    setData(result);
+                } else {
+                    console.error("Failed to fetch calls", response.statusText);
+                    // Fallback to mock data for demonstration if API fails
+                    setData(CALL_HISTORY_MOCK_DATA);
+                }
+            } catch (error) {
+                console.error("Error fetching calls:", error);
+                setData(CALL_HISTORY_MOCK_DATA);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchCalls();
+    }, []);
 
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
     const [activeCall, setActiveCall] = useState<CallRecord | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+
+    const ITEMS_PER_PAGE = 10;
 
     // Stats calculation
     const totalCalls = data.length;
-    const totalDurationSeconds = data.reduce((acc, c) => acc + c.durationSeconds, 0);
-    const avgDuration = totalCalls ? totalDurationSeconds / totalCalls : 0;
-    const withNotes = data.filter(c => !!c.notes).length;
-    const withTags = data.filter(c => c.tags.length > 0).length;
+    const totalDurationSeconds = data.reduce((acc, c) => acc + c.duration, 0);
 
     const formatDurationCompact = (sec: number) => {
         if (!sec) return "—";
@@ -48,148 +83,231 @@ export default function CallHistoryPage() {
             sortable: true,
             width: "w-[120px]",
             render: (call) => (
-                <span className="font-mono text-xs bg-black/5 px-2 py-1 rounded text-gray-600">
+                <span className="font-sans text-sm text-[#0C335C] font-semibold">
                     {call.id}
                 </span>
             )
         },
         {
-            key: "timestamp",
-            label: "Timestamp",
+            key: "phoneNumber",
+            label: "Number",
             sortable: true,
-            width: "w-[150px]",
+            width: "w-[140px]",
             render: (call) => {
-                const d = new Date(call.timestamp);
-                // Simplified formatting for mock purposes
-                return <span>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, {d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>;
+                const num = call.direction === "inbound" ? call.from_number : call.to_number;
+                return <span className="font-sans text-sm text-[#0C335C] font-medium">{num}</span>;
             }
         },
         {
-            key: "direction",
-            label: "Dir",
+            key: "timestamp",
+            label: "Timestamp",
             sortable: true,
-            width: "w-[80px]",
-            render: (call) => (
-                <span className="flex items-center justify-center w-full">
-                    {call.direction === "Inbound" ? "📥" : "📤"}
-                </span>
-            )
-        },
-        {
-            key: "phoneNumber",
-            label: "Phone Number",
-            sortable: true,
-            width: "w-[150px]",
-            render: (call) => (
-                <span className="font-medium text-navy">{call.phoneNumber}</span>
-            )
+            width: "w-[160px]",
+            render: (call) => {
+                const d = new Date(call.started_at);
+                return <span className="font-sans text-sm text-[#111] font-normal opacity-70">{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, {d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>;
+            }
         },
         {
             key: "durationSeconds",
             label: "Duration",
             sortable: true,
             width: "w-[100px]",
-            render: (call) => <span>{formatDurationCompact(call.durationSeconds)}</span>
+            render: (call) => <span className="font-sans text-sm text-[#111] font-normal opacity-70">{formatDurationCompact(call.duration)}</span>
         },
         {
-            key: "outcome",
-            label: "Outcome",
+            key: "direction",
+            label: "Direction",
             sortable: true,
-            width: "w-[120px]",
-            render: (call) => {
-                const bg = call.outcome === "Completed" ? "bg-green-100 text-green-800"
-                    : call.outcome === "Missed" ? "bg-red-100 text-red-800"
-                        : call.outcome === "Voicemail" ? "bg-amber-100 text-amber-800"
-                            : call.outcome === "Failed" ? "bg-gray-100 text-gray-800"
-                                : "bg-blue-100 text-blue-800"; // In Progress
-
-                return <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${bg}`}>{call.outcome}</span>
-            }
-        },
-        {
-            key: "recordingStatus",
-            label: "Rec.",
-            width: "w-[80px]",
-            render: (call) => {
-                if (call.recordingStatus === "Available") return <span className="flex items-center text-xs text-red-600"><span className="h-1.5 w-1.5 rounded-full bg-red-500 mr-1" /> {formatDurationCompact(call.durationSeconds)}</span>;
-                if (call.recordingStatus === "Processing") return <span className="text-xs text-amber-600">⏳ Proc...</span>;
-                if (call.recordingStatus === "Failed") return <span className="text-xs text-red-500">⚠️ Fail</span>;
-                return <span className="text-gray-400">—</span>;
-            }
+            width: "w-[100px]",
+            render: (call) => (
+                <span className="flex items-center text-sm font-sans text-[#111] opacity-80 capitalize">
+                    {call.direction}
+                </span>
+            )
         },
         {
             key: "tags",
-            label: "Tags",
-            width: "w-[180px]",
-            render: (call) => (
-                <div className="flex items-center gap-1 overflow-hidden" title={call.tags.map((t: any) => t.name).join(', ')}>
-                    {call.tags.slice(0, 2).map((tag: any, i: number) => (
-                        <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded truncate max-w-[70px]">
-                            {tag.name}
-                        </span>
-                    ))}
-                    {call.tags.length > 2 && <span className="text-[10px] text-gray-400">+{call.tags.length - 2}</span>}
-                    {call.tags.length === 0 && <span className="text-gray-400">—</span>}
-                </div>
-            )
+            label: "Tagging IDs",
+            width: "w-[160px]",
+            render: (call) => {
+                let parsedTags: any[] = [];
+                try {
+                    parsedTags = JSON.parse(call.tags || "[]");
+                } catch (e) { }
+
+                return (
+                    <div className="flex items-center gap-1 overflow-hidden" title={parsedTags.map(t => t.id || t.name).join(', ')}>
+                        {parsedTags.slice(0, 2).map((tag: any, i: number) => (
+                            <span key={i} className="font-sans text-[10px] bg-black/5 text-[#0C335C] px-2 py-1 rounded truncate max-w-[70px]">
+                                {tag.id || tag.name}
+                            </span>
+                        ))}
+                        {parsedTags.length > 2 && <span className="font-sans text-[10px] text-gray-400 bg-black/5 px-2 py-1 rounded">+{parsedTags.length - 2}</span>}
+                        {parsedTags.length === 0 && <span className="font-sans text-[12px] text-gray-400">—</span>}
+                    </div>
+                );
+            }
         },
         {
             key: "notes",
             label: "Notes",
-            width: "w-[200px]",
+            width: "flex-1 min-w-[150px]", // Use generic flex for notes since it can be long
             render: (call) => (
-                <div className="flex items-center gap-2 overflow-hidden w-full">
-                    {call.notes ? (
+                <div className="flex items-center gap-2 overflow-hidden w-full" title={call.agent_notes}>
+                    {call.agent_notes ? (
                         <React.Fragment>
-                            <MessageSquare size={12} className="text-gray-400 shrink-0" />
-                            <span className="truncate text-xs text-gray-600">{call.notes}</span>
+                            <span className="truncate font-sans text-xs text-[#111] font-normal opacity-70">{call.agent_notes}</span>
                         </React.Fragment>
-                    ) : <span className="text-gray-400 text-center w-full">—</span>}
+                    ) : <span className="font-sans text-xs text-gray-400">—</span>}
                 </div>
             )
+        },
+        {
+            key: "actions",
+            label: "Actions",
+            width: "w-[90px]",
+            fixedRight: true,
+            render: (call) => {
+                const hasRecording = !!call.recording_url;
+                const isProcessing = call.status === "completed" && !hasRecording;
+
+                return (
+                    <div className="flex items-center gap-2">
+                        {hasRecording && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setActiveCall(call); }}
+                                className="flex items-center justify-center gap-1 text-[#FE641F] hover:bg-[#FE641F]/10 px-2 py-1 rounded transition-colors text-xs font-medium"
+                            >
+                                <PlayCircle size={16} /> Play
+                            </button>
+                        )}
+                        {isProcessing && (
+                            <span className="text-amber-500 text-xs flex items-center gap-1"><span className="animate-spin text-xs">⏳</span> Proc.</span>
+                        )}
+                        {!hasRecording && !isProcessing && (
+                            <span className="text-gray-400 text-xs">—</span>
+                        )}
+                    </div>
+                );
+            }
         }
     ];
 
     // Apply filters
     const filteredData = data.filter(call => {
-        if (search && !call.phoneNumber.includes(search) && !call.id.toLowerCase().includes(search.toLowerCase()) && !call.notes.toLowerCase().includes(search.toLowerCase())) return false;
+        const num = call.direction === "inbound" ? call.from_number : call.to_number;
+        if (search && !num?.includes(search) && !call.id.toLowerCase().includes(search.toLowerCase()) && !call.agent_notes?.toLowerCase().includes(search.toLowerCase())) return false;
         if (directionFilter !== "all" && call.direction.toLowerCase() !== directionFilter.toLowerCase()) return false;
-        if (outcomeFilter !== "all" && call.outcome.toLowerCase() !== outcomeFilter.toLowerCase()) return false;
-        if (recordingFilter === "with" && call.recordingStatus !== "Available") return false;
-        if (recordingFilter === "without" && call.recordingStatus === "Available") return false;
-        if (notesFilter === "with" && !call.notes) return false;
-        if (notesFilter === "without" && call.notes) return false;
+        if (outcomeFilter !== "all" && call.status.toLowerCase() !== outcomeFilter.toLowerCase()) return false;
         return true;
     });
 
+    const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+
+    const handleClearFilters = () => {
+        setSearch("");
+        setDirectionFilter("all");
+        setOutcomeFilter("all");
+        setCurrentPage(1);
+    };
+
+    const hasActiveFilters = search || directionFilter !== "all" || outcomeFilter !== "all";
+
+    const exportToCSV = () => {
+        if (!data || data.length === 0) return;
+
+        // Define CSV headers
+        const headers = ["Call ID", "From Number", "To Number", "Direction", "Status", "Duration (sec)", "Started At", "Agent Notes", "Tags", "Recording URL"];
+
+        // Convert data to CSV rows
+        const csvRows = [
+            headers.join(','),
+            ...data.map(call => {
+                let tagsStr = "";
+                try {
+                    const tagsArr = JSON.parse(call.tags || "[]");
+                    tagsStr = tagsArr.map((t: any) => t.id || t.name).join(' | ');
+                } catch (e) { }
+
+                return [
+                    `"${call.id}"`,
+                    `"${call.from_number}"`,
+                    `"${call.to_number}"`,
+                    `"${call.direction}"`,
+                    `"${call.status}"`,
+                    `${call.duration}`,
+                    `"${new Date(call.started_at).toISOString()}"`,
+                    `"${call.agent_notes ? call.agent_notes.replace(/"/g, '""') : ''}"`,
+                    `"${tagsStr}"`,
+                    `"${call.recording_url || ''}"`
+                ].join(',');
+            })
+        ];
+
+        // Create Blob and download
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `call_history_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const paginatedData = React.useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredData.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredData, currentPage]);
+
     return (
         <DashboardLayout>
-            <div className="h-[calc(100vh-84px)] w-full flex flex-col p-6 overflow-hidden bg-[#FAFAFA]">
+            <div className="h-[calc(100vh-84px)] w-full flex flex-col p-6 overflow-hidden" style={{ background: "var(--background)" }}>
 
                 {/* Top Banner specific to this page if any, or it could all be in TableCard. 
           The requirement asks for Quick Stats Bar, we can pass it into TableCard's stats. */}
 
                 <div className="flex-1 overflow-hidden">
                     {/* Desktop View */}
-                    <div className="hidden md:block h-full">
+                    <div className="hidden md:block h-full relative">
+                        {isLoading ? (
+                            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-2xl border border-black/5 shadow-sm">
+                                <span className="text-4xl animate-spin">⏳</span>
+                                <p className="mt-4 text-navy font-semibold">Loading calls...</p>
+                            </div>
+                        ) : null}
                         <TableCard
                             title="Call History"
+                            breadcrumbs={[
+                                { label: "Home", href: "/" },
+                                { label: "Call History" }
+                            ]}
                             primaryAction={
-                                <button className="flex items-center gap-2 px-4 py-2 bg-white border border-black/10 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
-                                    <Download size={16} /> Export
+                                <button
+                                    onClick={() => router.push('/')}
+                                    className="flex justify-center items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#FE641F] shadow-[0_4px_14px_0_rgba(254,100,31,0.30)] text-white text-center font-sans text-sm font-bold leading-[20px] transition-colors hover:bg-[#e55a1b]"
+                                >
+                                    <PlayCircle size={20} /> New Call
                                 </button>
                             }
-                            searchPlaceholder="Search by phone, call ID, or note..."
+                            secondaryAction={
+                                <button
+                                    onClick={exportToCSV}
+                                    className="flex justify-center items-center gap-2 px-4 py-2.5 rounded-[10px] border border-[#FE641F] shadow-[0_4px_14px_0_rgba(254,100,31,0.3)] text-[#111] text-center font-sans text-sm font-bold leading-[20px] transition-colors hover:bg-black/5 bg-transparent"
+                                >
+                                    <Download size={20} /> Export
+                                </button>
+                            }
+                            searchPlaceholder="Search phone, ID..."
                             searchValue={search}
                             onSearchChange={setSearch}
-                            onClearFilters={() => {
-                                setSearch("");
-                                setDirectionFilter("all");
-                                setOutcomeFilter("all");
-                                setRecordingFilter("all");
-                                setNotesFilter("all");
+                            onClearFilters={hasActiveFilters ? () => {
+                                handleClearFilters();
                                 setSelectedKeys(new Set());
-                            }}
+                            } : undefined}
                             filters={[
                                 {
                                     key: "direction",
@@ -209,86 +327,76 @@ export default function CallHistoryPage() {
                                         { label: "Failed", value: "failed" }
                                     ],
                                     onChange: setOutcomeFilter
-                                },
-                                {
-                                    key: "recording",
-                                    label: "Recording",
-                                    value: recordingFilter,
-                                    options: [{ label: "With Recording", value: "with" }, { label: "Without Recording", value: "without" }],
-                                    onChange: setRecordingFilter
-                                },
-                                {
-                                    key: "notes",
-                                    label: "Notes",
-                                    value: notesFilter,
-                                    options: [{ label: "With Notes", value: "with" }, { label: "Without Notes", value: "without" }],
-                                    onChange: setNotesFilter
                                 }
                                 // Date picker omitted for simplicity, but could be added easily
                             ]}
                             stats={[
-                                { label: "Total Calls", value: <span className="flex items-center gap-1">📞 {totalCalls}</span>, valueColorClass: "text-blue-600" },
-                                { label: "Total Duration", value: <span className="flex items-center gap-1">⏱️ {formatHrsMins(totalDurationSeconds)}</span>, valueColorClass: "text-purple-600" },
-                                { label: "Avg Duration", value: <span className="flex items-center gap-1">📊 {formatDurationCompact(avgDuration)}</span>, valueColorClass: "text-green-600" },
-                                { label: "With Notes", value: <span className="flex items-center gap-1">📝 {withNotes}</span>, valueColorClass: "text-orange-600" },
-                                { label: "With Tags", value: <span className="flex items-center gap-1">🏷️ {withTags}</span>, valueColorClass: "text-teal-600" },
+                                { label: "Total Calls", value: totalCalls.toString(), valueColorClass: "text-[#0C335C]" },
+                                { label: "Total Duration", value: formatHrsMins(totalDurationSeconds), valueColorClass: "text-[#FE641F]" },
                             ]}
                             columns={columns}
-                            data={filteredData}
+                            data={paginatedData}
                             keyExtractor={(call) => call.id}
                             selectable
                             selectedKeys={selectedKeys}
                             onSelectionChange={setSelectedKeys}
                             onRowClick={(call) => setActiveCall(call)}
+                            onInfoClick={(call) => setActiveCall(call)}
                             pagination={{
-                                currentPage: 1,
-                                totalPages: Math.ceil(filteredData.length / 20),
+                                currentPage: currentPage,
+                                totalPages: totalPages,
                                 totalItems: filteredData.length,
-                                itemsPerPage: 20,
-                                onPageChange: () => { }
+                                itemsPerPage: ITEMS_PER_PAGE,
+                                onPageChange: setCurrentPage
                             }}
                         />
                     </div>
 
-                    {/* Mobile View */}
                     <div className="md:hidden h-full flex flex-col overflow-y-auto gap-4 pb-20">
                         <div className="flex items-center justify-between">
                             <h1 className="text-xl font-bold text-navy">Call History</h1>
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            {filteredData.map(call => (
-                                <MobileCallCard
-                                    key={call.id}
-                                    call={call}
-                                    onClick={() => setActiveCall(call)}
-                                    selectable
-                                    isSelected={selectedKeys.has(call.id)}
-                                    onSelect={(checked) => {
-                                        const newKeys = new Set(selectedKeys);
-                                        if (checked) newKeys.add(call.id);
-                                        else newKeys.delete(call.id);
-                                        setSelectedKeys(newKeys);
-                                    }}
-                                />
-                            ))}
-                            {filteredData.length === 0 && (
-                                <div className="text-center py-12 text-gray-500">
-                                    <span className="text-4xl">🔍</span>
-                                    <p className="mt-4 text-navy font-medium">No calls match your criteria</p>
-                                    <button
-                                        onClick={() => {
-                                            setSearch("");
-                                            setDirectionFilter("all");
-                                            setOutcomeFilter("all");
-                                            setRecordingFilter("all");
-                                            setNotesFilter("all");
-                                        }}
-                                        className="mt-2 text-brand text-sm hover:underline"
-                                    >
-                                        Clear all filters
-                                    </button>
+                            {isLoading ? (
+                                <div className="flex flex-col items-center justify-center py-20">
+                                    <span className="text-2xl animate-spin">⏳</span>
+                                    <p className="mt-4 text-navy font-medium">Loading calls...</p>
                                 </div>
+                            ) : (
+                                <>
+                                    {filteredData.map(call => (
+                                        <MobileCallCard
+                                            key={call.id}
+                                            call={call}
+                                            onClick={() => setActiveCall(call)}
+                                            selectable
+                                            isSelected={selectedKeys.has(call.id)}
+                                            onSelect={(checked) => {
+                                                const newKeys = new Set(selectedKeys);
+                                                if (checked) newKeys.add(call.id);
+                                                else newKeys.delete(call.id);
+                                                setSelectedKeys(newKeys);
+                                            }}
+                                        />
+                                    ))}
+                                    {filteredData.length === 0 && (
+                                        <div className="text-center py-12 text-gray-500">
+                                            <span className="text-4xl">🔍</span>
+                                            <p className="mt-4 text-navy font-medium">No calls match your criteria</p>
+                                            <button
+                                                onClick={() => {
+                                                    setSearch("");
+                                                    setDirectionFilter("all");
+                                                    setOutcomeFilter("all");
+                                                }}
+                                                className="mt-2 text-brand text-sm hover:underline"
+                                            >
+                                                Clear all filters
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>

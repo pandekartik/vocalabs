@@ -5,13 +5,13 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, isInitialized } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const [isChecking, setIsChecking] = useState(true);
 
     useEffect(() => {
-        if (!isLoading) {
+        if (isInitialized && !isLoading) {
             if (!user) {
                 // If the user isn't authenticated yet, send to login
                 router.push("/login?redirect_to=" + encodeURIComponent(pathname));
@@ -32,9 +32,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 }
             }
         }
-    }, [user, isLoading, router, pathname]);
+    }, [user, isLoading, isInitialized, router, pathname]);
 
-    if (isLoading || isChecking) {
+    if (!isInitialized || isLoading || isChecking) {
         return (
             <div className="flex h-screen w-full items-center justify-center bg-background">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-brand border-r-transparent"></div>

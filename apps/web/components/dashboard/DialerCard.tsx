@@ -1,10 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Phone, Delete, User } from "lucide-react";
 import { useCallStore } from "@/store/useCallStore";
 import { cn } from "@repo/ui/lib/utils";
 import AgentStatusPill, { AgentStatusType } from "./AgentStatusPill";
 import DialerStatusPill, { DialerStatusType } from "./DialerStatusPill";
-import AgentInfoHeader from "./AgentInfoHeader";
 import CallControlButton from "./CallControlButton";
 
 interface DialerCardProps {
@@ -50,23 +49,57 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
     };
 
     const keys = [
-        { label: "1", sub: "ABC" },
-        { label: "2", sub: "DEF" },
-        { label: "3", sub: "GHI" },
-        { label: "4", sub: "JKL" },
-        { label: "5", sub: "MNO" },
-        { label: "6", sub: "PQRS" },
-        { label: "7", sub: "TUV" },
-        { label: "8", sub: "WXYZ" },
-        { label: "9", sub: "" },
+        { label: "1", sub: "" }, // 1 traditionally doesn't have letters for dialing, or it's voicemail. 
+        { label: "2", sub: "abc" },
+        { label: "3", sub: "def" },
+        { label: "4", sub: "ghi" },
+        { label: "5", sub: "jkl" },
+        { label: "6", sub: "mno" },
+        { label: "7", sub: "pqrs" },
+        { label: "8", sub: "tuv" },
+        { label: "9", sub: "wxyz" },
         { label: "*", sub: "" },
         { label: "0", sub: "+" },
         { label: "#", sub: "" },
     ];
 
-    // Determine Statuses
-    const agentStatus: AgentStatusType = (callStatus === "in-progress" || callStatus === "ringing") ? "On Call" : "Live";
+    // Long press logic
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const [isLongPress, setIsLongPress] = useState(false);
 
+    const handlePointerDown = (key: { label: string, sub: string }) => {
+        setIsLongPress(false);
+        if (key.sub) {
+            timerRef.current = setTimeout(() => {
+                setIsLongPress(true);
+                // On long press, insert the first character of `sub` if it's "+", "abc" doesn't usually dial letters but for + it's useful
+                const charToInsert = key.label === "0" ? "+" : key.label; // Only 0/+ is typically long-pressed on a dialer, but we can extend this
+                if (charToInsert) {
+                    handleKeyPress(charToInsert);
+                }
+            }, 500); // 500ms long press threshold
+        }
+    };
+
+    const handlePointerUp = (key: { label: string, sub: string }) => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+        if (!isLongPress) {
+            // It was a short press
+            handleKeyPress(key.label);
+        }
+    };
+
+    const handlePointerLeave = () => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+    };
+
+    // Determine Statuses
     let dialerStatus: DialerStatusType = "Disconnected";
     if (isDeviceRegistered) {
         dialerStatus = "Connected";
@@ -80,9 +113,6 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
 
     return (
         <div className="flex flex-col gap-4 w-full h-full">
-            {/* Agent Info Header */}
-            <AgentInfoHeader status={agentStatus} />
-
             {/* Dialer Container */}
             <div
                 className="flex flex-1 flex-col gap-3 rounded-3xl border border-white/10 p-6 shadow-sm backdrop-blur-[42px]"
@@ -141,8 +171,12 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
                         {keys.map((key) => (
                             <button
                                 key={key.label}
-                                onClick={() => handleKeyPress(key.label)}
-                                className="flex h-[72px] w-[72px] flex-col items-center justify-center gap-0.5 rounded-[46px] border border-[rgba(17,17,17,0.05)] p-3 backdrop-blur-[42px] transition-all hover:bg-white/10 active:scale-95"
+                                onPointerDown={() => handlePointerDown(key)}
+                                onPointerUp={() => handlePointerUp(key)}
+                                onPointerLeave={handlePointerLeave}
+                                // Prevent default context menu on touch devices during long press
+                                onContextMenu={(e) => { e.preventDefault(); return false; }}
+                                className="flex h-[72px] w-[72px] flex-col items-center justify-center gap-0.5 rounded-[46px] border border-[rgba(17,17,17,0.05)] p-3 backdrop-blur-[42px] transition-all hover:bg-white/10 active:scale-95 touch-none select-none"
                                 style={{
                                     background: "linear-gradient(95.95deg, rgba(17, 17, 17, 0.05) 4.09%, rgba(17, 17, 17, 0.02) 105.58%)"
                                 }}
@@ -151,7 +185,7 @@ export default function DialerCard({ onCallStart }: DialerCardProps) {
                                     {key.label}
                                 </span>
                                 {key.sub && (
-                                    <span className="text-[14px] text-[#111] opacity-60 leading-none">
+                                    <span className="text-[14px] text-[#111] opacity-60 leading-none uppercase">
                                         {key.sub}
                                     </span>
                                 )}

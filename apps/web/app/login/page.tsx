@@ -105,9 +105,15 @@ export default function LoginPage() {
                             type="checkbox"
                             checked={rememberMe}
                             onChange={(e) => setRememberMe(e.target.checked)}
-                            className="h-4 w-4 rounded border-vl-gray-2 accent-brand focus:ring-brand"
+                            className="appearance-none h-4 w-4 rounded-[4px] border border-vl-gray-2 bg-white checked:bg-brand checked:border-brand cursor-pointer focus:ring-1 focus:ring-brand focus:ring-offset-1 focus:outline-none transition-colors"
+                            style={{
+                                backgroundImage: rememberMe ? `url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 8.5L7 11.5L12 4.5' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")` : 'none',
+                                backgroundPosition: 'center',
+                                backgroundRepeat: 'no-repeat',
+                                backgroundSize: '100% 100%'
+                            }}
                         />
-                        <label htmlFor="remember-me" className="text-vl-sm text-vl-gray-3 cursor-pointer">
+                        <label htmlFor="remember-me" className="text-vl-sm text-vl-gray-3 cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>
                             Remember me for 90 days
                         </label>
                     </div>
@@ -117,7 +123,7 @@ export default function LoginPage() {
                         variant="primary"
                         size="lg"
                         isLoading={isLoading}
-                        className="w-full justify-center mt-1"
+                        className="w-full justify-center mt-1 text-white"
                     >
                         Sign In
                     </VLButton>

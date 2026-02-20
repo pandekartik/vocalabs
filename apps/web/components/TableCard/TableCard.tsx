@@ -15,6 +15,7 @@ export interface TableColumn<T> {
     sortable?: boolean;
     render?: (item: T) => React.ReactNode;
     width?: string;
+    fixedRight?: boolean;
 }
 
 export interface TableCardProps<T> {
@@ -176,25 +177,33 @@ export function TableCard<T>({
     const isAllSelected = data.length > 0 && selectedKeys?.size === data.length;
 
     return (
-        <div className={`flex flex-col h-full w-full bg-white/40 backdrop-blur-[42px] border border-white/10 rounded-3xl shadow-sm overflow-hidden ${className}`}>
+        <div className={`flex flex-col w-full justify-start items-start p-6 gap-6 rounded-[24px] border border-white/10 shadow-[0_4px_8px_0_rgba(26,26,26,0.12)] backdrop-blur-[42px] overflow-hidden bg-white/50 ${className}`}
+            style={{
+                background: "linear-gradient(95deg, rgba(255, 255, 255, 0.40) 0%, rgba(255, 255, 255, 0.80) 100%)"
+            }}
+        >
             {/* Header Section */}
-            <div className="p-6 shrink-0 flex items-center justify-between">
+            <div className="flex justify-between items-center self-stretch shrink-0 w-full">
                 <div className="flex flex-col gap-1">
                     {/* Breadcrumbs */}
                     {breadcrumbs && breadcrumbs.length > 0 && (
-                        <div className="flex items-center gap-1 text-sm">
+                        <div className="flex items-start gap-1 font-sans text-sm font-normal">
                             {breadcrumbs.map((crumb, idx) => (
                                 <React.Fragment key={idx}>
                                     <span className={idx === breadcrumbs.length - 1 ? "text-[#0C335C]" : "text-[#FE641F]"}>
                                         {crumb.label}
                                     </span>
-                                    {idx < breadcrumbs.length - 1 && <ChevronRight size={16} className="text-gray-400" />}
+                                    {idx < breadcrumbs.length - 1 && (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                                            <path d="M5.14644 4.18624C5.09732 4.14046 5.05792 4.08526 5.03059 4.02393C5.00326 3.9626 4.98857 3.89639 4.98738 3.82925C4.9862 3.76212 4.99855 3.69543 5.0237 3.63317C5.04884 3.57092 5.08627 3.51436 5.13375 3.46688C5.18123 3.4194 5.23779 3.38197 5.30005 3.35682C5.3623 3.33168 5.42899 3.31933 5.49613 3.32051C5.56326 3.3217 5.62947 3.33639 5.6908 3.36372C5.75214 3.39105 5.80734 3.43045 5.85311 3.47957L10.5198 8.14624C10.6134 8.23999 10.666 8.36707 10.666 8.49957C10.666 8.63207 10.6134 8.75915 10.5198 8.85291L5.85311 13.5196C5.80734 13.5687 5.75214 13.6081 5.6908 13.6354C5.62947 13.6628 5.56326 13.6774 5.49613 13.6786C5.42899 13.6798 5.3623 13.6675 5.30005 13.6423C5.23779 13.6172 5.18123 13.5797 5.13375 13.5323C5.08627 13.4848 5.04884 13.4282 5.0237 13.366C4.99855 13.3037 4.9862 13.237 4.98738 13.1699C4.98857 13.1028 5.00326 13.0365 5.03059 12.9752C5.05792 12.9139 5.09732 12.8587 5.14644 12.8129L9.45978 8.49957L5.14644 4.18624Z" fill="#0C335C" />
+                                        </svg>
+                                    )}
                                 </React.Fragment>
                             ))}
                         </div>
                     )}
                     {/* Title */}
-                    <h2 className="text-[#0C335C] text-xl font-semibold">
+                    <h2 className="text-[#0C335C] font-sans text-base font-medium">
                         {title}
                     </h2>
                 </div>
@@ -207,30 +216,30 @@ export function TableCard<T>({
             </div>
 
             {/* Toolbar Section: Search, Filters, Stats */}
-            <div className="px-6 flex items-center gap-4 shrink-0">
-                <div className="flex-1 flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-4 self-stretch shrink-0 justify-between">
+                <div className="flex-1 flex flex-wrap items-center gap-4 min-w-[320px]">
                     {/* Search */}
                     {(onSearchChange || searchValue !== undefined) && (
-                        <div className="flex-1 max-w-[480px] flex items-center gap-2 bg-black/5 border border-black/5 rounded-2xl px-4 py-3">
+                        <div className="flex min-w-[200px] max-w-[480px] p-4 items-center gap-2 flex-1 bg-black/5 border border-black/5 rounded-2xl overflow-hidden">
                             <Search size={18} className="text-gray-500 shrink-0" />
                             <input
                                 type="text"
                                 placeholder={searchPlaceholder}
                                 value={searchValue || ""}
                                 onChange={(e) => onSearchChange?.(e.target.value)}
-                                className="flex-1 bg-transparent border-none outline-none text-sm text-[#111] placeholder:text-gray-500"
+                                className="flex-1 bg-transparent border-none outline-none text-[#111] font-sans text-sm font-medium placeholder:text-[#111] placeholder:opacity-50 overflow-hidden text-ellipsis"
                             />
                         </div>
                     )}
 
                     {/* Filters */}
                     {filters?.map((filter) => (
-                        <div key={filter.key} className="flex items-center justify-between border border-[#CBCBCB] rounded-2xl px-3 py-2 h-[34px] min-w-[120px] bg-white cursor-pointer hover:bg-gray-50">
-                            {filter.isDate && filter.value === "" && <Calendar size={16} className="text-[#0C335C] mr-2" />}
+                        <div key={filter.key} className="flex h-[34px] px-3 py-1.5 justify-center items-center gap-1 border border-[#CBCBCB] rounded-[100px] bg-white cursor-pointer hover:bg-gray-50">
+                            {filter.isDate && filter.value === "" && <Calendar size={16} className="text-[#0C335C] shrink-0" />}
                             <select
                                 value={filter.value}
                                 onChange={(e) => filter.onChange(e.target.value)}
-                                className="bg-transparent text-[#0C335C] font-['IBM_Plex_Sans'] text-sm w-full outline-none appearance-none cursor-pointer"
+                                className="bg-transparent text-[#0C335C] text-right font-sans text-sm font-normal w-full outline-none appearance-none cursor-pointer"
                                 style={{ textAlignLast: filter.isDate && filter.value === "" ? 'left' : 'right' }}
                             >
                                 {filter.isDate && filter.value === "" && (
@@ -241,7 +250,7 @@ export function TableCard<T>({
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                 ))}
                             </select>
-                            <ChevronDown size={16} className="text-[#0C335C]" />
+                            <ChevronDown size={16} className="text-[#0C335C] shrink-0" />
                         </div>
                     ))}
 
@@ -272,13 +281,13 @@ export function TableCard<T>({
             </div>
 
             {/* Table Section */}
-            <div className="flex-1 mt-6 overflow-hidden relative flex flex-col px-6 pb-2">
+            <div className="flex-1 relative flex flex-col w-full min-h-0 overflow-x-auto">
                 {sortedData.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-12 w-full text-center">
                         <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
                             <Info className="text-gray-400" size={32} />
                         </div>
-                        <h3 className="text-lg font-medium text-[#0C335C]">No agents found</h3>
+                        <h3 className="text-lg font-medium text-[#0C335C]">No data found</h3>
                         <p className="text-gray-500 text-sm mt-1">Try adjusting your filters or search query to find what you're looking for.</p>
                         {onClearFilters && (
                             <button
@@ -290,104 +299,106 @@ export function TableCard<T>({
                         )}
                     </div>
                 ) : (
-                    <table className="w-full text-left text-sm flex flex-col h-full overflow-hidden">
-                        <thead className="flex shrink-0 w-full z-10 shadow-[0_1px_0_rgba(0,0,0,0.05)] pb-2">
-                            <tr className="flex w-full items-center">
-                                {selectable && (
-                                    <th className="py-1 px-3 w-[40px] shrink-0 flex justify-center items-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={isAllSelected}
-                                            onChange={(e) => handleSelectAll(e.target.checked)}
-                                            className="h-4 w-4 rounded border-gray-300 text-[#FE641F] focus:ring-[#FE641F] cursor-pointer"
-                                        />
-                                    </th>
-                                )}
-                                {columns.map((col, colIndex) => (
-                                    <th
-                                        key={col.key.toString()}
-                                        className={`font-normal text-[#0C335C] ${col.sortable ? 'cursor-pointer hover:bg-black/5 rounded-lg transition-colors' : ''} ${col.width ? col.width + ' shrink-0' : 'flex-1'}`}
-                                        onClick={() => col.sortable && handleSortClick(col.key.toString())}
-                                    >
-                                        <div className="flex p-3 justify-start items-center gap-2 self-stretch w-full h-full">
-                                            {col.label}
-                                            {col.sortable && (
-                                                <ArrowUpDown size={14} className={activeSortKey === col.key ? 'text-[#FE641F]' : 'text-gray-400'} />
-                                            )}
-                                        </div>
-                                    </th>
-                                ))}
-                                {onInfoClick && (
-                                    <th className="p-3 w-[60px] shrink-0">
-                                        {/* Actions Column Header (Empty) */}
-                                    </th>
-                                )}
-                            </tr>
-                        </thead>
-                        <tbody className="flex-1 overflow-y-auto flex flex-col w-full pt-2">
-                            {sortedData.map((row, rowIndex) => {
-                                const rowKey = keyExtractor(row);
-                                const isSelected = selectedKeys?.has(rowKey);
-                                const rowBg = isSelected ? "bg-orange-50" : rowIndex % 2 === 0 ? "bg-transparent" : "bg-black/5";
+                    <div className="flex-1 w-full min-h-0 overflow-auto relative">
+                        <table className="flex flex-col items-start min-w-max text-left text-sm relative">
+                            <thead className="flex flex-col items-start self-stretch shrink-0 w-full z-10 shadow-[0_1px_0_rgba(0,0,0,0.05)] pb-2 sticky top-0 bg-white/50 backdrop-blur-[42px]">
+                                <tr className="flex p-3 justify-start items-center gap-2 self-stretch w-full shrink-0 relative">
+                                    {selectable && (
+                                        <th className="py-1 px-3 w-[40px] shrink-0 flex justify-center items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={isAllSelected}
+                                                onChange={(e) => handleSelectAll(e.target.checked)}
+                                                className="h-4 w-4 rounded border-gray-300 text-[#FE641F] focus:ring-[#FE641F] cursor-pointer"
+                                            />
+                                        </th>
+                                    )}
+                                    {columns.map((col, colIndex) => (
+                                        <th
+                                            key={col.key.toString()}
+                                            className={`flex items-center gap-2 text-[#0C335C] font-sans text-sm font-normal ${col.sortable ? 'cursor-pointer hover:bg-black/5 rounded-lg transition-colors' : ''} ${col.width ? col.width + ' shrink-0' : 'flex-1'} ${col.fixedRight ? 'sticky right-0 bg-white/90 backdrop-blur z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.02)]' : ''}`}
+                                            onClick={() => col.sortable && handleSortClick(col.key.toString())}
+                                        >
+                                            <div className={`flex items-center gap-2 self-stretch w-full h-full ${col.fixedRight ? 'justify-center' : 'justify-start'}`}>
+                                                {col.label}
+                                                {col.sortable && (
+                                                    <ArrowUpDown size={14} className={activeSortKey === col.key ? 'text-[#FE641F] shrink-0' : 'text-gray-400 shrink-0'} />
+                                                )}
+                                            </div>
+                                        </th>
+                                    ))}
+                                    {onInfoClick && (
+                                        <th className="p-3 w-[60px] shrink-0">
+                                            {/* Actions Column Header (Empty) */}
+                                        </th>
+                                    )}
+                                </tr>
+                            </thead>
+                            <tbody className="flex flex-col w-full pt-2">
+                                {sortedData.map((row, rowIndex) => {
+                                    const rowKey = keyExtractor(row);
+                                    const isSelected = selectedKeys?.has(rowKey);
+                                    const rowBg = isSelected ? "bg-orange-50" : rowIndex % 2 === 0 ? "bg-transparent" : "bg-black/5";
 
-                                return (
-                                    <tr
-                                        key={rowKey}
-                                        className={`flex w-full items-center ${rowBg} hover:bg-orange-50/50 transition-colors group cursor-default rounded-2xl mb-1 shrink-0`}
-                                    >
-                                        {selectable && (
-                                            <td className="py-2 px-3 w-[40px] shrink-0 flex justify-center items-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected || false}
-                                                    onChange={(e) => handleSelectRow(rowKey, e.target.checked)}
-                                                    className="h-4 w-4 rounded border-gray-300 text-[#FE641F] focus:ring-[#FE641F] cursor-pointer"
-                                                />
-                                            </td>
-                                        )}
-                                        {columns.map((col, colIndex) => {
-                                            // const isClickableCol = colIndex === clickableColumnIndex; // Removed as per instructions
-                                            const isClickableCol = false; // Default to false if clickableColumnIndex is removed
-                                            return (
-                                                <td
-                                                    key={col.key.toString()}
-                                                    className={`py-2 px-3 flex items-center text-[#0C335C] ${isClickableCol ? 'cursor-pointer group-hover:text-[#FE641F] transition-colors font-medium' : ''} ${col.width ? col.width + ' shrink-0' : 'flex-1 overflow-hidden truncate'}`}
-                                                    onClick={() => {
-                                                        if (isClickableCol && onRowClick) {
-                                                            onRowClick(row);
-                                                        }
-                                                    }}
-                                                >
-                                                    {col.render ? col.render(row) : (row as any)[col.key]}
+                                    return (
+                                        <tr
+                                            key={rowKey}
+                                            className={`flex p-3 justify-start items-center gap-2 self-stretch w-full ${rowBg} hover:bg-orange-50/50 transition-colors group cursor-default rounded-2xl mb-1 shrink-0 relative`}
+                                        >
+                                            {selectable && (
+                                                <td className="py-2 px-3 w-[40px] shrink-0 flex justify-center items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected || false}
+                                                        onChange={(e) => handleSelectRow(rowKey, e.target.checked)}
+                                                        className="h-4 w-4 rounded border-gray-300 text-[#FE641F] focus:ring-[#FE641F] cursor-pointer"
+                                                    />
                                                 </td>
-                                            );
-                                        })}
-                                        {/* Row Actions */}
-                                        {onInfoClick && (
-                                            <td className="py-2 px-3 w-[60px] shrink-0 flex justify-end items-center">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onInfoClick(row);
-                                                    }}
-                                                    className="border border-[#CBCBCB] rounded-2xl h-[32px] w-[32px] inline-flex items-center justify-center text-gray-500 hover:text-[#FE641F] hover:border-[#FE641F] transition-colors bg-white shrink-0"
-                                                >
-                                                    <Info size={16} />
-                                                </button>
-                                            </td>
-                                        )}
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
+                                            )}
+                                            {columns.map((col, colIndex) => {
+                                                // const isClickableCol = colIndex === clickableColumnIndex; // Removed as per instructions
+                                                const isClickableCol = false; // Default to false if clickableColumnIndex is removed
+                                                return (
+                                                    <td
+                                                        key={col.key.toString()}
+                                                        className={`flex items-center text-[#0C335C] font-sans text-sm ${isClickableCol ? 'cursor-pointer group-hover:text-[#FE641F] transition-colors font-medium' : 'font-normal'} ${col.width ? col.width + ' shrink-0' : 'flex-1 overflow-hidden truncate'} ${col.fixedRight ? 'sticky right-0 bg-[#F5F6FA] z-20 shadow-[-4px_0_8px_rgba(0,0,0,0.02)] justify-center group-hover:bg-orange-50/50 transition-colors' : ''}`}
+                                                        onClick={() => {
+                                                            if (isClickableCol && onRowClick) {
+                                                                onRowClick(row);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {col.render ? col.render(row) : (row as any)[col.key]}
+                                                    </td>
+                                                );
+                                            })}
+                                            {/* Row Actions */}
+                                            {onInfoClick && (
+                                                <td className="py-2 px-3 w-[60px] shrink-0 flex justify-end items-center">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onInfoClick(row);
+                                                        }}
+                                                        className="border border-[#CBCBCB] rounded-2xl h-[32px] w-[32px] inline-flex items-center justify-center text-gray-500 hover:text-[#FE641F] hover:border-[#FE641F] transition-colors bg-white shrink-0"
+                                                    >
+                                                        <Info size={16} />
+                                                    </button>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
 
             {/* Pagination Footer */}
             {pagination && (
-                <div className="px-6 py-4 flex items-center justify-between shrink-0 border-t border-black/5 mt-auto bg-white/50 backdrop-blur-sm">
-                    <span className="text-[#0C335C] text-sm font-medium">
+                <div className="flex justify-between items-center self-stretch pt-4 border-t border-black/5 mt-auto bg-transparent">
+                    <span className="text-[#0C335C] font-sans text-xs font-medium">
                         Showing {Math.min(pagination.totalItems, (pagination.currentPage - 1) * pagination.itemsPerPage + 1)}-
                         {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} {pagination.totalItems === 1 ? 'item' : 'items'}
                     </span>

@@ -22,20 +22,23 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
         return `${m} minute${m !== 1 ? 's' : ''} ${s} second${s !== 1 ? 's' : ''}`;
     };
 
-    const startedAt = new Date(call.timestamp);
-    const endedAt = new Date(startedAt.getTime() + call.durationSeconds * 1000);
+    const startedAt = new Date(call.started_at);
+    const endedAt = new Date(call.ended_at);
 
     const getOutcomeDetails = () => {
-        switch (call.outcome) {
-            case "Completed": return { bg: "bg-green-100", text: "text-green-800", icon: <CheckCircle2 size={16} className="mr-1" />, label: "Completed" };
-            case "Missed": return { bg: "bg-red-100", text: "text-red-800", icon: <XCircle size={16} className="mr-1" />, label: "Missed" };
-            case "Voicemail": return { bg: "bg-amber-100", text: "text-amber-800", icon: <FileText size={16} className="mr-1" />, label: "Voicemail" };
-            case "Failed": return { bg: "bg-gray-100", text: "text-gray-800", icon: <AlertTriangle size={16} className="mr-1" />, label: "Failed" };
-            case "In Progress": return { bg: "bg-blue-100", text: "text-blue-800", icon: <Clock size={16} className="mr-1" />, label: "In Progress" };
-            default: return { bg: "bg-gray-100", text: "text-gray-800", icon: null, label: call.outcome };
+        switch (call.status) {
+            case "completed": return { bg: "bg-green-100", text: "text-green-800", icon: <CheckCircle2 size={16} className="mr-1" />, label: "Completed" };
+            case "missed": return { bg: "bg-red-100", text: "text-red-800", icon: <XCircle size={16} className="mr-1" />, label: "Missed" };
+            case "voicemail": return { bg: "bg-amber-100", text: "text-amber-800", icon: <FileText size={16} className="mr-1" />, label: "Voicemail" };
+            case "failed": return { bg: "bg-gray-100", text: "text-gray-800", icon: <AlertTriangle size={16} className="mr-1" />, label: "Failed" };
+            case "initiated": return { bg: "bg-blue-100", text: "text-blue-800", icon: <Clock size={16} className="mr-1" />, label: "Initiated" };
+            default: return { bg: "bg-gray-100", text: "text-gray-800", icon: null, label: call.status };
         }
     };
     const outcomeDetails = getOutcomeDetails();
+
+    let parsedTags: any[] = [];
+    try { parsedTags = JSON.parse(call.tags || "[]"); } catch (e) { }
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -87,18 +90,32 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                     <section className="flex flex-col gap-4">
                         <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
                             <div className="flex flex-col gap-1">
-                                <span className="text-gray-500">Phone Number</span>
+                                <span className="text-gray-500">From / To Number</span>
+                                <span className="font-medium text-navy flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-2">From: {call.from_number}</div>
+                                    <div className="flex items-center gap-2">To: {call.to_number}</div>
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-gray-500">Agent Number</span>
                                 <span className="font-medium text-navy flex items-center gap-2">
-                                    {call.phoneNumber}
-                                    <button className="text-brand hover:underline text-xs">Copy</button>
+                                    {call.agent_number}
                                 </span>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-gray-500">Direction</span>
-                                <span className="font-medium text-navy flex items-center gap-1.5">
-                                    {call.direction === "Inbound" ? <ArrowDownToLine size={16} className="text-blue-500" /> : <ArrowUpToLine size={16} className="text-orange-500" />}
+                                <span className="font-medium text-navy flex items-center gap-1.5 capitalize">
+                                    {call.direction === "inbound" ? <ArrowDownToLine size={16} className="text-blue-500" /> : <ArrowUpToLine size={16} className="text-orange-500" />}
                                     {call.direction}
                                 </span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-gray-500">Status</span>
+                                <div>
+                                    <span className={cn("inline-flex items-center px-2 py-1 rounded-md font-medium text-xs", outcomeDetails.bg, outcomeDetails.text)}>
+                                        {outcomeDetails.icon} {outcomeDetails.label}
+                                    </span>
+                                </div>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-gray-500">Started At</span>
@@ -110,24 +127,26 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-gray-500">Duration</span>
-                                <span className="font-medium text-navy">{formatDuration(call.durationSeconds)}</span>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <span className="text-gray-500">Outcome</span>
-                                <div>
-                                    <span className={cn("inline-flex items-center px-2 py-1 rounded-md font-medium text-xs", outcomeDetails.bg, outcomeDetails.text)}>
-                                        {outcomeDetails.icon} {outcomeDetails.label}
-                                    </span>
-                                </div>
+                                <span className="font-medium text-navy">{formatDuration(call.duration)}</span>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-gray-500">Recording Status</span>
                                 <span className="font-medium text-navy flex items-center gap-2">
-                                    {call.recordingStatus === "Available" && <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />}
-                                    {call.recordingStatus === "Processing" && <Clock size={14} className="text-amber-500" />}
-                                    {call.recordingStatus === "Failed" && <AlertTriangle size={14} className="text-red-500" />}
-                                    {call.recordingStatus}
+                                    {call.recording_url ? (
+                                        <><div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> Available</>
+                                    ) : call.status === "completed" ? (
+                                        <><Clock size={14} className="text-amber-500" /> Processing</>
+                                    ) : (
+                                        <><AlertTriangle size={14} className="text-gray-400" /> None</>
+                                    )}
                                 </span>
+                            </div>
+                            <div className="flex flex-col gap-1 col-span-2 mt-2 pt-2 border-t border-black/5">
+                                <span className="text-gray-500 text-xs text-uppercase tracking-wider font-semibold">Technical IDs</span>
+                                <div className="text-xs font-mono text-gray-500 flex flex-col gap-1 mt-1">
+                                    <div>Call SID: <span className="text-navy">{call.call_sid}</span></div>
+                                    <div>Stream SID: <span className="text-navy">{call.stream_sid}</span></div>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -136,13 +155,13 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                     <section className="flex flex-col gap-3">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-semibold text-navy flex items-center gap-2">
-                                Tags <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-normal">{call.tags.length}</span>
+                                Tags <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-normal">{parsedTags.length}</span>
                             </h3>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                            {call.tags.map(tag => (
-                                <div key={tag.id} className="flex items-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm group">
-                                    {tag.name}
+                            {parsedTags.map((tag: any) => (
+                                <div key={tag.id || tag.name} className="flex items-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm group">
+                                    {tag.id || tag.name}
                                     <button className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <X size={14} />
                                     </button>
@@ -164,17 +183,17 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                             <textarea
                                 className="w-full min-h-[120px] p-4 bg-gray-50 border border-black/10 rounded-xl text-sm text-navy placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition-all resize-y"
                                 placeholder="Add notes here..."
-                                defaultValue={call.notes}
+                                defaultValue={call.agent_notes}
                             />
                             <div className="absolute bottom-3 right-4 flex items-center gap-3">
                                 <span className="text-xs text-gray-400">Saving...</span>
-                                <span className="text-xs text-gray-400">{call.notes.length}/2000</span>
+                                <span className="text-xs text-gray-400">{(call.agent_notes || "").length}/2000</span>
                             </div>
                         </div>
                     </section>
 
                     {/* AI Summary Section */}
-                    {(call.aiSummary || call.sentiment) && (
+                    {(call.ai_summary || call.overall_sentiment) && (
                         <section className="flex flex-col gap-3 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
@@ -184,21 +203,21 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                                     98% confidence
                                 </span>
                             </div>
-                            <p className="text-sm text-indigo-900/80 leading-relaxed">
-                                {call.aiSummary}
+                            <p className="text-sm text-indigo-900/80 leading-relaxed whitespace-pre-line">
+                                {call.ai_summary}
                             </p>
-                            {call.sentiment && (
+                            {call.overall_sentiment && (
                                 <div className="mt-2 pt-3 border-t border-indigo-100/50 flex flex-col gap-2">
                                     <p className="text-xs text-indigo-900/60 font-medium">Sentiment</p>
                                     <div className="flex items-center gap-2">
                                         <span className={cn(
                                             "px-2.5 py-1 rounded-md text-sm font-medium border",
-                                            call.sentiment === "Positive" ? "bg-green-50 text-green-700 border-green-200" :
-                                                call.sentiment === "Negative" ? "bg-red-50 text-red-700 border-red-200" :
+                                            call.overall_sentiment === "Positive" ? "bg-green-50 text-green-700 border-green-200" :
+                                                call.overall_sentiment === "Negative" ? "bg-red-50 text-red-700 border-red-200" :
                                                     "bg-gray-50 text-gray-700 border-gray-200"
                                         )}>
-                                            {call.sentiment === "Positive" ? "😊 Positive" :
-                                                call.sentiment === "Negative" ? "😞 Negative" :
+                                            {call.overall_sentiment === "Positive" ? "😊 Positive" :
+                                                call.overall_sentiment === "Negative" ? "😞 Negative" :
                                                     "😐 Neutral"}
                                         </span>
                                     </div>
@@ -221,21 +240,12 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                             </div>
 
                             {/* Transcript Body Mock */}
-                            <div className="flex flex-col gap-3 mt-2 font-['IBM_Plex_Sans'] text-sm">
-                                <div className="flex gap-3">
-                                    <span className="text-gray-400 font-mono text-xs w-[60px] shrink-0 pt-0.5">2:34:15</span>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="font-semibold text-brand">Agent</span>
-                                        <span className="text-navy">Thank you for calling. How can I help?</span>
-                                    </div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <span className="text-gray-400 font-mono text-xs w-[60px] shrink-0 pt-0.5">2:34:22</span>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="font-semibold text-blue-600">Customer</span>
-                                        <span className="text-navy">Hi, I'm interested in your premium plan and would like to know the pricing.</span>
-                                    </div>
-                                </div>
+                            <div className="flex flex-col gap-3 mt-2 font-sans text-sm">
+                                {call.transcript ? (
+                                    <p className="whitespace-pre-line text-navy">{call.transcript}</p>
+                                ) : (
+                                    <span className="text-gray-400 italic">No transcript available.</span>
+                                )}
                             </div>
                         </div>
                     </section>
@@ -243,7 +253,7 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                 </div>
 
                 {/* Recording Player (Fixed Bottom) */}
-                {call.recordingStatus === "Available" && (
+                {call.recording_url && (
                     <div className="p-4 border-t border-black/10 bg-white/80 backdrop-blur-md shrink-0 flex items-center gap-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
                         <button className="h-10 w-10 shrink-0 bg-brand text-white rounded-full flex items-center justify-center hover:bg-brand/90 transition-transform hover:scale-105 shadow-sm">
                             <Play size={20} className="ml-1" />
@@ -264,7 +274,7 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                             </div>
                             <div className="flex justify-between items-center text-[10px] text-gray-500 font-mono">
                                 <span>01:23</span>
-                                <span>{formatDuration(call.durationSeconds)}</span>
+                                <span>{formatDuration(call.duration)}</span>
                             </div>
                         </div>
                         <div className="flex flex-col items-center gap-1 shrink-0">

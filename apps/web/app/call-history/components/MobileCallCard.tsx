@@ -12,19 +12,19 @@ interface MobileCallCardProps {
 }
 
 export function MobileCallCard({ call, onClick, onSelect, isSelected, selectable }: MobileCallCardProps) {
-    const isCompleted = call.outcome === "Completed";
-    const isMissed = call.outcome === "Missed";
-    const isFailed = call.outcome === "Failed";
-    const isVoicemail = call.outcome === "Voicemail";
+    const isCompleted = call.status === "completed";
+    const isMissed = call.status === "missed";
+    const isFailed = call.status === "failed";
+    const isVoicemail = call.status === "voicemail";
 
     const getOutcomeDetails = () => {
-        switch (call.outcome) {
-            case "Completed": return { bg: "bg-green-100", text: "text-green-800", icon: <CheckCircle2 size={14} className="mr-1" />, label: "Completed" };
-            case "Missed": return { bg: "bg-red-100", text: "text-red-800", icon: <XCircle size={14} className="mr-1" />, label: "Missed" };
-            case "Voicemail": return { bg: "bg-amber-100", text: "text-amber-800", icon: <FileText size={14} className="mr-1" />, label: "Voicemail" };
-            case "Failed": return { bg: "bg-gray-100", text: "text-gray-800", icon: <AlertTriangle size={14} className="mr-1" />, label: "Failed" };
-            case "In Progress": return { bg: "bg-blue-100", text: "text-blue-800", icon: <Clock size={14} className="mr-1" />, label: "In Progress" };
-            default: return { bg: "bg-gray-100", text: "text-gray-800", icon: null, label: call.outcome };
+        switch (call.status) {
+            case "completed": return { bg: "bg-green-100", text: "text-green-800", icon: <CheckCircle2 size={14} className="mr-1" />, label: "Completed" };
+            case "missed": return { bg: "bg-red-100", text: "text-red-800", icon: <XCircle size={14} className="mr-1" />, label: "Missed" };
+            case "voicemail": return { bg: "bg-amber-100", text: "text-amber-800", icon: <FileText size={14} className="mr-1" />, label: "Voicemail" };
+            case "failed": return { bg: "bg-gray-100", text: "text-gray-800", icon: <AlertTriangle size={14} className="mr-1" />, label: "Failed" };
+            case "initiated": return { bg: "bg-blue-100", text: "text-blue-800", icon: <Clock size={14} className="mr-1" />, label: "Initiated" };
+            default: return { bg: "bg-gray-100", text: "text-gray-800", icon: null, label: call.status };
         }
     };
 
@@ -38,8 +38,11 @@ export function MobileCallCard({ call, onClick, onSelect, isSelected, selectable
         return `${m}m ${s}s`;
     };
 
-    const formattedDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(call.timestamp));
-    const hasNotes = !!call.notes;
+    const formattedDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(call.started_at));
+    const hasNotes = !!call.agent_notes;
+
+    let parsedTags: any[] = [];
+    try { parsedTags = JSON.parse(call.tags || "[]"); } catch (e) { }
 
     return (
         <div
@@ -60,7 +63,7 @@ export function MobileCallCard({ call, onClick, onSelect, isSelected, selectable
             <div className={cn("flex items-start justify-between", selectable && "pl-8")}>
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2 text-xs font-medium">
-                        {call.direction === "Inbound" ? (
+                        {call.direction === "inbound" ? (
                             <span className="flex items-center text-blue-600"><ArrowDownToLine size={14} className="mr-1" /> Inbound</span>
                         ) : (
                             <span className="flex items-center text-orange-600"><ArrowUpToLine size={14} className="mr-1" /> Outbound</span>
@@ -71,29 +74,32 @@ export function MobileCallCard({ call, onClick, onSelect, isSelected, selectable
                     </div>
                     <div className="text-sm font-mono text-gray-500 mt-1">Call ID: {call.id}</div>
                     <div className="text-base font-semibold text-navy flex items-center gap-1.5 mt-0.5">
-                        <Phone size={16} className="text-gray-400" /> {call.phoneNumber}
+                        <Phone size={16} className="text-gray-400" /> {call.direction === "inbound" ? call.from_number : call.to_number}
                     </div>
                 </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-1"><Clock size={16} /> {formatDuration(call.durationSeconds)}</div>
-                {call.recordingStatus === "Available" && (
+                <div className="flex items-center gap-1"><Clock size={16} /> {formatDuration(call.duration)}</div>
+                {call.recording_url && (
                     <div className="flex items-center gap-1 text-red-600"><div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> Recording</div>
+                )}
+                {!call.recording_url && call.status === "completed" && (
+                    <div className="flex items-center gap-1 text-amber-600"><Clock size={14} /> Processing</div>
                 )}
                 <div className="text-gray-400 ml-auto">{formattedDate}</div>
             </div>
 
-            {call.tags && call.tags.length > 0 && (
+            {parsedTags.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-gray-400">🏷️</span>
-                    {call.tags.slice(0, 3).map(tag => (
-                        <span key={tag.id} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-md">
-                            {tag.name}
+                    {parsedTags.slice(0, 3).map((tag: any) => (
+                        <span key={tag.id || tag.name} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-md">
+                            {tag.id || tag.name}
                         </span>
                     ))}
-                    {call.tags.length > 3 && (
-                        <span className="text-xs text-gray-500">+{call.tags.length - 3}</span>
+                    {parsedTags.length > 3 && (
+                        <span className="text-xs text-gray-500">+{parsedTags.length - 3}</span>
                     )}
                 </div>
             )}
@@ -101,7 +107,7 @@ export function MobileCallCard({ call, onClick, onSelect, isSelected, selectable
             {hasNotes && (
                 <div className="text-sm text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-black/5 italic flex gap-2">
                     <span className="shrink-0">📝</span>
-                    <span className="line-clamp-2">"{call.notes}"</span>
+                    <span className="line-clamp-2">"{call.agent_notes}"</span>
                 </div>
             )}
 

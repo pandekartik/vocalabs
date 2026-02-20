@@ -7,22 +7,21 @@ interface AgentStatusPillProps {
     className?: string;
 }
 
-const variantMap: Record<AgentStatusType, { bg: string; dot: string }> = {
-    "Live": { bg: "bg-green-100 text-green-700 border border-green-200", dot: "bg-live" },
-    "On Call": { bg: "bg-orange-100 text-brand border border-orange-200", dot: "bg-brand" },
-    "Offline": { bg: "bg-red-100 text-danger border border-red-200", dot: "bg-danger" },
-    "Paused": { bg: "bg-amber-100 text-amber-700 border border-amber-200", dot: "bg-warning" },
+const variantMap: Record<AgentStatusType, { bg: string }> = {
+    "Live": { bg: "bg-[#1db013] text-white" },
+    "On Call": { bg: "bg-brand text-white" },
+    "Offline": { bg: "bg-[#b01313] text-white" },
+    "Paused": { bg: "bg-warning text-white" },
 };
 
 export default function AgentStatusPill({ status, className }: AgentStatusPillProps) {
     const v = variantMap[status] ?? variantMap["Offline"];
     return (
         <span className={cn(
-            "inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-vl-xs font-medium",
+            "inline-flex items-center justify-center rounded-3xl px-3 py-1 text-[10px] font-medium uppercase shadow-sm",
             v.bg,
             className
         )}>
-            <span className={cn("w-1.5 h-1.5 rounded-full", v.dot)} />
             {status}
         </span>
     );

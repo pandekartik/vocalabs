@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@repo/ui/lib/utils";
 import {
-    Phone, Users, Voicemail, BarChart, Bell, Settings, LogOut,
+    Phone, Users, Voicemail, BarChart, Bell, Settings, LogOut, Clock,
     type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -36,6 +36,7 @@ function NavItem({ icon: Icon, label, href, isActive }: NavItemProps) {
 
 const SUPERVISOR_ITEMS = [
     { icon: Phone, label: "Dialer", href: "/" },
+    { icon: Clock, label: "Call History", href: "/call-history" },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: Voicemail, label: "Voicemails", href: "/dashboard/voicemails" },
     { icon: BarChart, label: "Analytics", href: "/dashboard/analytics" },
@@ -45,8 +46,7 @@ const SUPERVISOR_ITEMS = [
 
 const AGENT_ITEMS = [
     { icon: Phone, label: "Dialer", href: "/" },
-    { icon: Voicemail, label: "Call History", href: "/call-history" },
-    { icon: BarChart, label: "Analytics", href: "/analytics" },
+    { icon: Clock, label: "Call History", href: "/call-history" },
     { icon: Bell, label: "Reminders", href: "/reminders" },
     { icon: Settings, label: "Settings", href: "/settings" },
 ];
@@ -92,9 +92,11 @@ export function SideNav() {
                             key={item.href}
                             {...item}
                             isActive={
-                                item.href === "/dashboard/team"
-                                    ? pathname === "/dashboard/team"
-                                    : pathname.startsWith(item.href) && item.href !== "/"
+                                item.href === "/"
+                                    ? pathname === "/"
+                                    : item.href === "/dashboard/team"
+                                        ? pathname === "/dashboard/team"
+                                        : pathname.startsWith(item.href)
                             }
                         />
                     ))}

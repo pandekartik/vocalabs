@@ -8,7 +8,6 @@ import ActiveCallCard from "@/components/dashboard/ActiveCallCard";
 import CallInputCard from "@/components/dashboard/CallInputCard";
 import ActiveCallRightPanel from "@/components/dashboard/ActiveCallRightPanel";
 import { useCallStore } from "@/store/useCallStore";
-import DebugCallControl from "@/components/dashboard/DebugCallControl";
 
 import IncomingCallPopup from "@/components/IncomingCallPopup";
 import PostCallDrawer from "@/components/dashboard/PostCallDrawer";
@@ -26,7 +25,7 @@ export default function DashboardClient() {
         showVoicemailToast,
         setShowVoicemailToast
     } = useCallStore();
-    const isCallActive = callStatus !== 'idle';
+    const isCallActive = ['connecting', 'ringing', 'in-progress'].includes(callStatus);
 
     useEffect(() => {
         // Initialize device on mount
@@ -73,8 +72,6 @@ export default function DashboardClient() {
                 isVisible={showVoicemailToast}
                 onClose={() => setShowVoicemailToast(false)}
             />
-
-            <DebugCallControl />
         </div>
     );
 }

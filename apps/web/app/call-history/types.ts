@@ -10,14 +10,21 @@ export interface CallTag {
 
 export interface CallRecord {
     id: string;
-    timestamp: string; // ISO String
-    direction: CallDirection;
-    phoneNumber: string; // E.g. "+1-555-0456"
-    durationSeconds: number; // Duration in seconds
-    outcome: CallOutcome;
-    recordingStatus: RecordingStatus;
-    tags: CallTag[];
-    notes: string;
-    aiSummary?: string;
-    sentiment?: "Positive" | "Neutral" | "Negative";
+    call_sid: string;
+    stream_sid: string;
+    direction: "inbound" | "outbound" | string;
+    status: string;
+    from_number: string;
+    to_number: string;
+    agent_number: string;
+    duration: number; // in seconds
+    recording_url: string;
+    transcript: string;
+    ai_summary: string;
+    overall_sentiment: string;
+    agent_notes: string;
+    tags: string; // the API schema provides it as a string
+    started_at: string; // ISO String
+    ended_at: string; // ISO String
+    created_at: string; // ISO String
 }

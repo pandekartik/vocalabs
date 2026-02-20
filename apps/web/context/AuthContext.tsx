@@ -18,6 +18,7 @@ interface User {
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
+    isInitialized: boolean;
     loginError: string | null;
     login: (email: string, password: string, rememberMe: boolean, organizationSlug?: string) => Promise<void>;
     logout: () => void;
@@ -28,16 +29,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
     const [loginError, setLoginError] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
         // Hydrate user from localStorage on mount
         const storedUser = localStorage.getItem("user");
-        const sessionExpiry = localStorage.getItem("sessionExpiry");
+        const sessionExpiryStr = localStorage.getItem("sessionExpiry");
 
         if (storedUser) {
-            if (sessionExpiry && new Date().getTime() > parseInt(sessionExpiry, 10)) {
+            const now = new Date().getTime();
+            const sessionExpiry = sessionExpiryStr ? parseInt(sessionExpiryStr, 10) : 0;
+
+            if (sessionExpiry > 0 && now > sessionExpiry) {
                 // Session expired
                 logout();
             } else {
@@ -49,7 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             }
         }
-    }, []);
+        setIsInitialized(true);
+    }, [router]);
 
     const login = async (email: string, password: string, rememberMe: boolean, organizationSlug?: string) => {
         setIsLoading(true);
@@ -109,8 +115,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const logout = () => {
-        // Destroy Twilio Device before clearing auth
-        useCallStore.getState().destroyDevice();
+        // Destroy Twilio Device before clearing auth safely
+        try {
+            const callStore = useCallStore.getState();
+            if (callStore && typeof callStore.destroyDevice === 'function') {
+                callStore.destroyDevice();
+            }
+        } catch (e) {
+            console.warn("Could not destroy Twilio device during logout", e);
+        }
 
         localStorage.removeItem("user");
         localStorage.removeItem("token");
@@ -121,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, loginError, login, logout }}>
+        <AuthContext.Provider value={{ user, isLoading, isInitialized, loginError, login, logout }}>
             {children}
         </AuthContext.Provider>
     );

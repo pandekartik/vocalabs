@@ -4,7 +4,6 @@
 import { useCallStore } from "@/store/useCallStore";
 import { cn } from "@repo/ui/lib/utils";
 import { Mic, MicOff, Phone, Pause, GripHorizontal, CirclePause, Play, ChevronLeft } from "lucide-react";
-import AgentInfoHeader from "./AgentInfoHeader";
 import DialerStatusPill from "./DialerStatusPill";
 import RecordingPill from "./RecordingPill";
 import { useState } from "react";
@@ -24,7 +23,8 @@ export default function ActiveCallCard({ onEndCall }: ActiveCallCardProps) {
         isOnHold,
         toggleRecording,
         isRecordingPaused,
-        phoneNumber
+        phoneNumber,
+        callStatus
     } = useCallStore();
 
     const [showKeypad, setShowKeypad] = useState(false);
@@ -59,13 +59,8 @@ export default function ActiveCallCard({ onEndCall }: ActiveCallCardProps) {
         { label: "#", sub: "" },
     ];
 
-    const agentStatus = "On Call";
-
     return (
         <div className="flex flex-col gap-4 w-full h-full">
-            {/* Agent Info Header */}
-            <AgentInfoHeader status={agentStatus} />
-
             {/* Active Call Dialer Container */}
             <div
                 className="relative flex flex-1 flex-col gap-6 rounded-[24px] border border-white/10 p-6 shadow-sm backdrop-blur-[42px] overflow-hidden"
@@ -79,7 +74,7 @@ export default function ActiveCallCard({ onEndCall }: ActiveCallCardProps) {
                     <h2 className="font-medium text-[#0c335c] text-base">Dialer</h2>
                     <div className="flex items-center gap-2">
                         <RecordingPill isPaused={isRecordingPaused} />
-                        <DialerStatusPill status="Connected" />
+                        <DialerStatusPill status={callStatus === 'in-progress' ? "Connected" : "Initializing"} />
                     </div>
                 </div>
 
@@ -115,7 +110,10 @@ export default function ActiveCallCard({ onEndCall }: ActiveCallCardProps) {
                                 <h1 className="text-[24px] font-medium text-[#0c335c]">Call on Hold</h1>
                             ) : (
                                 <>
-                                    <h1 className="text-[24px] font-medium text-[#111] leading-none">{formatDuration(duration)}</h1>
+                                    <h1 className="text-[24px] font-medium text-[#111] leading-none">
+                                        {callStatus === 'in-progress' ? formatDuration(duration) :
+                                            callStatus === 'ringing' ? 'Ringing...' : 'Connecting...'}
+                                    </h1>
                                     <p className="text-[14px] text-[#64748b] leading-none">{phoneNumber || "Unknown Number"}</p>
                                 </>
                             )}

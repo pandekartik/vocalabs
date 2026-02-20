@@ -14,7 +14,7 @@ export default function CallControlButton({ variant, className, children, ...pro
         <button
             className={cn(
                 "flex items-center justify-center gap-2 w-full px-4 py-3 rounded-[10px] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
-                "text-white text-center font-['IBM_Plex_Sans'] text-[16px] font-semibold leading-[20px]",
+                "text-white text-center font-sans text-[16px] font-semibold leading-[20px]",
                 "shadow-[0px_4px_14px_0px_rgba(254,100,31,0.30)]", // Specific shadow from request
                 isCall ? "bg-[#1DB013] hover:bg-[#16A34A]" : "bg-[#B01313] hover:bg-[#8a0f0f]",
                 className

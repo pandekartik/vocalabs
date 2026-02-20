@@ -39,24 +39,24 @@ function getRandomSubarray<T>(arr: T[], size: number) {
 
 function generateMockCalls(count: number): CallRecord[] {
     const calls: CallRecord[] = [];
-    const outcomes: CallRecord["outcome"][] = ["Completed", "Missed", "Voicemail", "Failed", "In Progress"];
-    const directions: CallRecord["direction"][] = ["Inbound", "Outbound"];
+    const outcomes = ["completed", "missed", "voicemail", "failed", "initiated"];
+    const directions = ["inbound", "outbound"];
 
     for (let i = 0; i < count; i++) {
         const isCompleted = Math.random() > 0.3;
-        const outcome = isCompleted ? "Completed" : (outcomes[Math.floor(Math.random() * outcomes.length)] as CallRecord["outcome"]);
-        const direction = directions[Math.floor(Math.random() * directions.length)] as CallRecord["direction"];
+        const status = isCompleted ? "completed" : outcomes[Math.floor(Math.random() * outcomes.length)];
+        const direction = directions[Math.floor(Math.random() * directions.length)];
 
-        const hasRecording = outcome === "Completed" && Math.random() > 0.1;
+        const hasRecording = status === "completed" && Math.random() > 0.1;
         const hasNotes = Math.random() > 0.2;
         const hasTags = Math.random() > 0.1;
 
         // Random duration based on outcome
-        let durationSeconds = 0;
-        if (outcome === "Completed") {
-            durationSeconds = Math.floor(Math.random() * 1200) + 30; // 30s to 20m
-        } else if (outcome === "Voicemail") {
-            durationSeconds = Math.floor(Math.random() * 120) + 10;
+        let duration = 0;
+        if (status === "completed") {
+            duration = Math.floor(Math.random() * 1200) + 30; // 30s to 20m
+        } else if (status === "voicemail") {
+            duration = Math.floor(Math.random() * 120) + 10;
         }
 
         const timestamp = new Date();
@@ -65,23 +65,34 @@ function generateMockCalls(count: number): CallRecord[] {
         timestamp.setHours(Math.floor(Math.random() * 24));
         timestamp.setMinutes(Math.floor(Math.random() * 60));
 
+        const endedAt = new Date(timestamp.getTime() + duration * 1000);
+
+        const tagsArray = hasTags ? getRandomSubarray(mockTagsList, Math.floor(Math.random() * 3) + 1) : [];
+
         calls.push({
             id: `C${100000 + Math.floor(Math.random() * 899999)}`,
-            timestamp: timestamp.toISOString(),
+            call_sid: `CA${Math.random().toString(36).substring(2, 15)}`,
+            stream_sid: `MZ${Math.random().toString(36).substring(2, 15)}`,
             direction,
-            phoneNumber: `+1-555-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
-            durationSeconds,
-            outcome,
-            recordingStatus: hasRecording ? "Available" : (outcome === "Completed" ? (Math.random() > 0.8 ? "Processing" : "Failed") : "None"),
-            tags: hasTags ? getRandomSubarray(mockTagsList, Math.floor(Math.random() * 3) + 1) : [],
-            notes: hasNotes ? (mockNotes[Math.floor(Math.random() * mockNotes.length)] as string) : "",
-            aiSummary: hasNotes ? "Customer expressed interest in premium plan. Price sensitivity detected. Requested follow-up call next week." : undefined,
-            sentiment: hasNotes ? (Math.random() > 0.5 ? "Positive" : Math.random() > 0.5 ? "Neutral" : "Negative") : undefined
+            status: status as string,
+            from_number: direction === "inbound" ? `+1-555-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}` : "+1-800-VOCALAB",
+            to_number: direction === "outbound" ? `+1-555-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}` : "+1-800-VOCALAB",
+            agent_number: "+1-800-VOCALAB",
+            duration,
+            recording_url: hasRecording ? "https://example.com/recording.wav" : "",
+            transcript: hasRecording ? "Customer: Hello, I have a question about pricing.\nAgent: Sure, I can help with that." : "",
+            ai_summary: hasNotes ? "Customer expressed interest in premium plan. Price sensitivity detected." : "",
+            overall_sentiment: hasNotes ? (Math.random() > 0.5 ? "Positive" : Math.random() > 0.5 ? "Neutral" : "Negative") : "",
+            agent_notes: hasNotes ? (mockNotes[Math.floor(Math.random() * mockNotes.length)] ?? "") : "",
+            tags: JSON.stringify(tagsArray),
+            started_at: timestamp.toISOString(),
+            ended_at: endedAt.toISOString(),
+            created_at: timestamp.toISOString()
         });
     }
 
-    // Sort descending by timestamp
-    return calls.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // Sort descending by created_at
+    return calls.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
 export const CALL_HISTORY_MOCK_DATA = generateMockCalls(47);

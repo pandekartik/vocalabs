@@ -19,9 +19,9 @@ export function Card({ title, children, className, ...props }: CardProps) {
             {...props}
         >
             {title && (
-                <h3 className="text-base font-medium text-[#0c335c]">{title}</h3>
+                <h3 className="text-base font-medium text-[#0c335c] shrink-0">{title}</h3>
             )}
-            <div className="flex-1">{children}</div>
+            {children}
         </div>
     );
 }
