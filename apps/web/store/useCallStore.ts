@@ -41,6 +41,7 @@ interface CallState {
     endCall: () => void;
     acceptIncomingCall: () => void;
     rejectIncomingCall: () => void;
+    sendDTMF: (digit: string) => void;
     toggleMute: () => void;
     toggleHold: () => void;
     toggleRecording: () => void;
@@ -153,6 +154,29 @@ export const useCallStore = create<CallState>((set, get) => ({
                     isDeviceRegistered: true,
                     errorMessage: null,
                 });
+
+                // Send heartbeat to mark agent online in Redis
+                // (critical for inbound call routing — agent must be online)
+                const authToken = localStorage.getItem("token");
+                if (authToken) {
+                    // heartbeat is at root /heartbeat, not under /calls
+                    import('axios').then(({ default: axios }) => {
+                        axios.post('https://api.vocalabstech.com/heartbeat', {}, {
+                            headers: { Authorization: `Bearer ${authToken}` },
+                        }).then(() => console.log("💓 Agent heartbeat sent (online)"))
+                            .catch((e) => console.warn("Heartbeat failed:", e));
+
+                        // Periodic heartbeat every 30s to maintain online status
+                        const heartbeatInterval = setInterval(() => {
+                            const t = localStorage.getItem("token");
+                            if (!t) { clearInterval(heartbeatInterval); return; }
+                            axios.post('https://api.vocalabstech.com/heartbeat', {}, {
+                                headers: { Authorization: `Bearer ${t}` },
+                            }).catch(() => { });
+                        }, 30000);
+                        (newDevice as any)._heartbeatInterval = heartbeatInterval;
+                    });
+                }
             });
 
             // ─── Event: registering ───────────────────────────────────────
@@ -208,7 +232,25 @@ export const useCallStore = create<CallState>((set, get) => ({
                     });
                 } else {
                     // Genuine inbound call — show popup
-                    set({ incomingCall: call });
+                    const inboundCallSid = call.parameters?.CallSid || null;
+                    set({ incomingCall: call, callSid: inboundCallSid });
+
+                    // Pre-fetch stream_sid so it's ready when user accepts
+                    // (WebSocket needs stream_sid, not CallSid, for transcript delivery)
+                    if (inboundCallSid) {
+                        const token = localStorage.getItem("token");
+                        if (token) {
+                            APIUSERDIAL.get(`/${inboundCallSid}/stream-info`, {
+                                headers: { Authorization: `Bearer ${token}` },
+                            }).then((res) => {
+                                const { stream_sid, call_id } = res.data;
+                                set({ streamSid: stream_sid, callId: call_id });
+                                console.log("📡 Pre-fetched stream info for inbound:", { stream_sid, call_id });
+                            }).catch((e) => {
+                                console.warn("Failed to fetch stream info:", e);
+                            });
+                        }
+                    }
 
                     call.on("cancel", () => {
                         console.log("Incoming call cancelled by caller");
@@ -290,6 +332,10 @@ export const useCallStore = create<CallState>((set, get) => ({
 
         // Destroy the device
         if (device) {
+            // Clear heartbeat interval
+            if ((device as any)._heartbeatInterval) {
+                clearInterval((device as any)._heartbeatInterval);
+            }
             try {
                 device.destroy();
                 console.log("Twilio Device destroyed on logout");
@@ -386,20 +432,39 @@ export const useCallStore = create<CallState>((set, get) => ({
 
             // 2. Connect WebSocket for live transcription and events
             const ws = new WebSocket(frontend_url);
-            ws.onopen = () => console.log("WebSocket connected for call events");
+            ws.onopen = () => console.log("✅ WebSocket connected for call events");
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.event === "full_content" && Array.isArray(data.data?.transcripts)) {
-                        data.data.transcripts.forEach((item: any) => {
-                            if (item.event === "transcription" && item.data) {
-                                const speaker = item.speaker === "Agent" ? "Agent" : "Customer";
-                                get().addTranscriptMessage({ speaker, text: item.data });
-                            }
+                    console.log("📨 WS message received:", data.event);
+
+                    // Full transcript content from STT (matching reference agent-assist pattern)
+                    // Replaces entire transcript array with properly-tagged conversation
+                    if (data.event === "full_content" && data.data?.transcripts) {
+                        console.log("📋 Received full_content with", data.data.transcripts.length, "entries");
+                        const messages: TranscriptMessage[] = data.data.transcripts
+                            .filter((t: any) => t.event === "transcription" && t.data && t.data.trim())
+                            .map((t: any) => ({
+                                speaker: t.speaker === "Agent" ? "Agent" as const : "Customer" as const,
+                                text: t.data,
+                            }));
+                        console.log("📋 Parsed", messages.length, "transcript messages (filtered empty)");
+                        set({ transcript: messages });
+                        return;
+                    }
+
+                    // Individual transcript event (backwards compatibility)
+                    if (data.event === "transcript" && data.is_final && data.transcript && data.transcript.trim()) {
+                        const speaker = data.speaker || "Customer";
+                        get().addTranscriptMessage({
+                            speaker: speaker === "Agent" ? "Agent" : "Customer",
+                            text: data.transcript,
                         });
                     }
-                    if (data.status === "call_ended") {
-                        get().endCall();
+
+                    // Stream ended by Twilio
+                    if (data.event === "stream_ended") {
+                        console.log("📡 Stream ended, call complete");
                     }
                 } catch (e) {
                     console.error("WebSocket message parsing error", e);
@@ -416,12 +481,25 @@ export const useCallStore = create<CallState>((set, get) => ({
 
             // Timeout: destination needs to answer before Twilio bridges
             setTimeout(() => {
-                const { pendingOutbound: stillPending } = get();
+                const { pendingOutbound: stillPending, callSid: currentCallSid } = get();
                 if (stillPending) {
                     console.error("Timeout: destination didn't answer or bridge failed");
+
+                    // Terminate the Twilio call so destination stops ringing
+                    const token = localStorage.getItem("token");
+                    if (currentCallSid && token) {
+                        APIUSERDIAL.post(`/${currentCallSid}/end`, {}, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        }).catch(() => { });
+                    }
+
+                    // Reset to idle so the UI returns to the dialer view
                     set({
                         pendingOutbound: false,
-                        callStatus: 'error',
+                        callStatus: 'idle',
+                        callSid: null,
+                        streamSid: null,
+                        connection: null,
                         errorMessage: "Call failed: destination didn't answer.",
                     });
                 }
@@ -438,17 +516,72 @@ export const useCallStore = create<CallState>((set, get) => ({
     },
 
     acceptIncomingCall: () => {
-        const { incomingCall } = get();
+        const { incomingCall, streamSid, callSid } = get();
         if (incomingCall) {
             incomingCall.accept();
-            set({ connection: incomingCall, incomingCall: null, callStatus: 'in-progress' });
+            set({
+                connection: incomingCall,
+                incomingCall: null,
+                callStatus: 'in-progress',
+                duration: 0,
+                transcript: [],
+            });
 
             const timer = setInterval(() => {
                 set((state) => ({ duration: state.duration + 1 }));
             }, 1000);
             (incomingCall as any)._timer = timer;
 
+            // Connect WebSocket for live transcription (if streamSid available)
+            const sid = streamSid || incomingCall.parameters?.CallSid;
+            if (sid) {
+                const token = localStorage.getItem("token");
+                const wsUrl = `wss://api.vocalabstech.com/ws/call-events/${sid}?token=${token}`;
+                const ws = new WebSocket(wsUrl);
+                ws.onopen = () => console.log("✅ Inbound call WebSocket connected");
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log("📨 [Inbound] WS message:", data.event);
+
+                        if (data.event === "full_content" && data.data?.transcripts) {
+                            console.log("📋 [Inbound] Received full_content with", data.data.transcripts.length, "entries");
+                            const messages: TranscriptMessage[] = data.data.transcripts
+                                .filter((t: any) => t.event === "transcription" && t.data && t.data.trim())
+                                .map((t: any) => ({
+                                    speaker: t.speaker === "Agent" ? "Agent" as const : "Customer" as const,
+                                    text: t.data,
+                                }));
+                            console.log("📋 [Inbound] Parsed", messages.length, "transcript messages (filtered empty)");
+                            set({ transcript: messages });
+                            return;
+                        }
+
+                        if (data.event === "transcript" && data.is_final && data.transcript && data.transcript.trim()) {
+                            const speaker = data.speaker || "Customer";
+                            get().addTranscriptMessage({
+                                speaker: speaker === "Agent" ? "Agent" : "Customer",
+                                text: data.transcript,
+                            });
+                        }
+                    } catch (e) {
+                        console.error("WebSocket message parsing error", e);
+                    }
+                };
+                ws.onerror = (error) => console.error("Inbound WS error:", error);
+                ws.onclose = () => console.log("Inbound WS closed");
+                (incomingCall as any)._ws = ws;
+            }
+
             incomingCall.on("disconnect", () => {
+                // Customer hung up — report disconnect reason
+                const token = localStorage.getItem("token");
+                const currentCallSid = get().callSid || callSid;
+                if (currentCallSid && token) {
+                    APIUSERDIAL.post(`/${currentCallSid}/disconnect-reason`, { reason: 'customer' }, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }).catch(() => { });
+                }
                 get().endCall();
             });
 
@@ -463,20 +596,44 @@ export const useCallStore = create<CallState>((set, get) => ({
     rejectIncomingCall: () => {
         const { incomingCall } = get();
         if (incomingCall) {
+            // Just reject the call — Twilio's <Dial action> URL will
+            // automatically redirect the caller to voicemail
             incomingCall.reject();
             set({ incomingCall: null, showVoicemailToast: true });
         }
     },
 
+    sendDTMF: (digit: string) => {
+        const { connection } = get();
+        if (connection) {
+            connection.sendDigits(digit);
+            console.log(`📱 DTMF sent: ${digit}`);
+        }
+    },
+
     endCall: () => {
-        const { connection, callStatus } = get();
+        const { connection, callStatus, callSid } = get();
 
         // Guard against double-trigger (disconnect event + user click)
         if (callStatus === 'idle' || callStatus === 'ended') return;
 
+        // Terminate the Twilio call for BOTH parties via backend API
+        const token = localStorage.getItem("token");
+        if (callSid && token) {
+            APIUSERDIAL.post(`/${callSid}/end`, {}, {
+                headers: { Authorization: `Bearer ${token}` },
+            }).catch((e) => {
+                console.warn("Backend end-call failed (call may already be over):", e);
+            });
+        }
+
         try {
             if (connection) {
                 if ((connection as any)._timer) clearInterval((connection as any)._timer);
+                // Close WebSocket if it exists
+                if ((connection as any)._ws) {
+                    try { (connection as any)._ws.close(); } catch (e) { }
+                }
                 try {
                     connection.disconnect();
                 } catch (e) {
@@ -490,7 +647,10 @@ export const useCallStore = create<CallState>((set, get) => ({
         set({
             connection: null,
             incomingCall: null,
+            pendingOutbound: false,
             callStatus: 'idle',
+            callSid: null,
+            streamSid: null,
             isMuted: false,
             isOnHold: false,
             isRecordingPaused: false,
