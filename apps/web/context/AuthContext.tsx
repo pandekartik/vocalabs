@@ -19,7 +19,7 @@ interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     loginError: string | null;
-    login: (email: string, password: string, organizationSlug?: string) => Promise<void>;
+    login: (email: string, password: string, rememberMe: boolean, organizationSlug?: string) => Promise<void>;
     logout: () => void;
 }
 
@@ -34,16 +34,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         // Hydrate user from localStorage on mount
         const storedUser = localStorage.getItem("user");
+        const sessionExpiry = localStorage.getItem("sessionExpiry");
+
         if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (error) {
-                console.error("Failed to parse user from localStorage", error);
+            if (sessionExpiry && new Date().getTime() > parseInt(sessionExpiry, 10)) {
+                // Session expired
+                logout();
+            } else {
+                try {
+                    setUser(JSON.parse(storedUser));
+                } catch (error) {
+                    console.error("Failed to parse user from localStorage", error);
+                    logout();
+                }
             }
         }
     }, []);
 
-    const login = async (email: string, password: string, organizationSlug?: string) => {
+    const login = async (email: string, password: string, rememberMe: boolean, organizationSlug?: string) => {
         setIsLoading(true);
         setLoginError(null);
 
@@ -70,9 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 email_verified: data.email_verified,
             };
 
-            // Store in localStorage (token + user details)
+            // Calculate expiry
+            // 90 days if rememberMe, otherwise let's say 1 day (or session duration)
+            const expiryDays = rememberMe ? 90 : 1;
+            const expiryTime = new Date().getTime() + expiryDays * 24 * 60 * 60 * 1000;
+
+            // Store in localStorage (token + user details + expiry)
             localStorage.setItem("token", data.access_token);
             localStorage.setItem("user", JSON.stringify(newUser));
+            localStorage.setItem("sessionExpiry", expiryTime.toString());
 
             setUser(newUser);
 
@@ -100,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         localStorage.removeItem("user");
         localStorage.removeItem("token");
+        localStorage.removeItem("sessionExpiry");
         setUser(null);
         setLoginError(null);
         router.push("/login");
