@@ -22,14 +22,14 @@ function NavItem({ icon: Icon, label, href, isActive }: NavItemProps) {
         <Link
             href={href}
             className={cn(
-                "flex w-full items-center gap-3 rounded-sm px-4 py-3 transition-all duration-200 text-vl-sm font-medium",
+                "flex w-full items-center gap-[10px] rounded-[10px] transition-all duration-200 text-[14px] leading-[20px]",
                 isActive
-                    ? "bg-brand text-white shadow-vl-orange"
-                    : "text-vl-gray-3 hover:bg-white/50 hover:text-navy"
+                    ? "bg-[#fe641f] text-white font-bold shadow-[0px_4px_14px_0px_rgba(254,100,31,0.3)] px-[16px] py-[10px]"
+                    : "text-[#64748b] font-normal hover:bg-white/50 hover:text-navy p-[12px]"
             )}
         >
-            <Icon className={cn("h-4 w-4", isActive ? "text-white" : "opacity-70")} />
-            <span>{label}</span>
+            <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-white" : "opacity-70")} />
+            <span className={isActive ? "font-bold" : ""}>{label}</span>
         </Link>
     );
 }
@@ -83,8 +83,8 @@ export function SideNav() {
     return (
         <aside className="fixed left-6 top-[84px] h-[calc(100vh-108px)] w-[193px] shrink-0">
             <div
-                className="flex h-full flex-col justify-between rounded-lg border border-white/10 px-4 py-6 shadow-vl-sm backdrop-blur-glass"
-                style={{ background: "var(--vl-glass)" }}
+                className="flex h-full flex-col justify-between rounded-[16px] border border-[rgba(255,255,255,0.1)] px-[16px] py-[24px] shadow-[0px_4px_8px_0px_rgba(26,26,26,0.12)] backdrop-blur-[42px]"
+                style={{ backgroundImage: "linear-gradient(91.179deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.8) 100%)" }}
             >
                 <div className="flex flex-col gap-1">
                     {items.map((item) => (
@@ -101,10 +101,10 @@ export function SideNav() {
                 </div>
                 <button
                     onClick={logout}
-                    className="flex w-full items-center gap-3 rounded-sm px-4 py-3 text-vl-sm font-medium text-vl-gray-3 transition-all hover:bg-white/50 hover:text-navy"
+                    className="flex w-full items-center gap-[10px] rounded-[10px] p-[12px] text-[14px] font-normal text-[#64748b] transition-all hover:bg-white/50 hover:text-navy"
                 >
-                    <LogOut className="h-4 w-4 opacity-70" />
-                    Logout
+                    <LogOut className="h-[14px] w-[14px]" />
+                    <span>Logout</span>
                 </button>
             </div>
         </aside>

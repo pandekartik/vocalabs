@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { INTELICONVOAPI } from "@/lib/axios";
 import { useCallStore } from "@/store/useCallStore";
+import axios from "axios";
 
 interface User {
     user_id: string;
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
             // Call the real backend: POST /auth/login
-            const response = await INTELICONVOAPI.post("/auth/login", {
+            const response = await axios.post("https://api.vocalabstech.com/auth/login", {
                 email,
                 password,
                 organization_slug: organizationSlug || "",
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 useCallStore.getState().initializeDevice();
             }, 100);
 
-            router.push("/dashboard");
+            router.push("/");
         } catch (err: any) {
             const detail = err?.response?.data?.detail;
             const message = detail || err.message || "Login failed";
