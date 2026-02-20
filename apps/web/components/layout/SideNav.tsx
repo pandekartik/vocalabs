@@ -39,7 +39,6 @@ const SUPERVISOR_ITEMS = [
     { icon: Clock, label: "Call History", href: "/call-history" },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: Voicemail, label: "Voicemails", href: "/dashboard/voicemails" },
-    { icon: BarChart, label: "Analytics", href: "/dashboard/analytics" },
     { icon: Bell, label: "Reminders", href: "/dashboard/reminders" },
     { icon: Settings, label: "Settings", href: "/dashboard/settings" },
 ];
