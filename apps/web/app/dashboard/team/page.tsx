@@ -1,302 +1,325 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TableCard, TableColumn } from "@/components/TableCard/TableCard";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { AddAgentModal } from "@/components/agents/AddAgentModal";
-import { BulkUploadModal } from "@/components/agents/BulkUploadModal";
-import { UploadCloud, UserPlus, MoreHorizontal, Eye, Edit2, ShieldAlert, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { UserPlus, Phone, ArrowDownToLine, ArrowUpToLine, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { cn } from "@repo/ui/lib/utils";
 
-// Mock Data Interfaces
+// API Schema Interface
 interface Agent {
     id: string;
-    avatarUrl?: string;
-    initials: string;
-    name: string;
-    email: string;
-    phone: string;
-    countryCode: string; // e.g., "US", "IN"
-    callTime: string;
-    callsToday: number;
-    type: "Inbound Only" | "Outbound Only" | "Both";
-    status: "Live" | "Offline" | "On Call" | "Paused";
-    lastActive: string;
+    user_id: string;
+    organization_id: string;
+    agent_name: string;
+    agent_id: string;
+    calling_type: "inbound" | "outbound" | string;
+    inbound_enabled: boolean;
+    outbound_enabled: boolean;
+    is_active: boolean;
+    phone_number: string | null;
+    twilio_sid: string | null;
+    created_at: string;
 }
 
-// Mock Data
-const MOCK_AGENTS: Agent[] = [
-    { id: "1", initials: "JD", name: "John Doe", email: "john.doe@company.com", phone: "+1 (555) 123-4567", countryCode: "US", callTime: "4h 23m", callsToday: 47, type: "Both", status: "Live", lastActive: "2 min ago" },
-    { id: "2", initials: "RM", name: "Riya Mehta", email: "riya.mehta@company.com", phone: "+91 98765 43210", countryCode: "IN", callTime: "5h 19m", callsToday: 34, type: "Outbound Only", status: "Offline", lastActive: "1 hour ago" },
-    { id: "3", initials: "NV", name: "Nisha Verma", email: "nisha.v@company.com", phone: "+1 (555) 234-5678", countryCode: "US", callTime: "4h 18m", callsToday: 45, type: "Both", status: "On Call", lastActive: "Just now" },
-    { id: "4", initials: "VJ", name: "Vikram Joshi", email: "v.joshi@company.com", phone: "+44 20 7123 4567", countryCode: "GB", callTime: "0h 12m", callsToday: 2, type: "Outbound Only", status: "Paused", lastActive: "15 min ago" },
-    { id: "5", initials: "RS", name: "Rohan Singh", email: "rohan.s@company.com", phone: "+91 99887 76655", countryCode: "IN", callTime: "8h 32m", callsToday: 88, type: "Inbound Only", status: "Live", lastActive: "1 min ago" },
-    { id: "6", initials: "SK", name: "Sanya Kapoor", email: "sanya.k@company.com", phone: "+1 (555) 345-6789", countryCode: "US", callTime: "7h 31m", callsToday: 62, type: "Both", status: "On Call", lastActive: "Just now" },
-    { id: "7", initials: "PG", name: "Priya Gupta", email: "priya.g@company.com", phone: "+61 2 1234 5678", countryCode: "AU", callTime: "4h 36m", callsToday: 41, type: "Outbound Only", status: "Live", lastActive: "3 min ago" },
-    { id: "8", initials: "KD", name: "Karan Desai", email: "karan.d@company.com", phone: "+1 (555) 456-7890", countryCode: "US", callTime: "3h 42m", callsToday: 52, type: "Both", status: "Paused", lastActive: "45 min ago" },
-    { id: "9", initials: "AR", name: "Anaya Reddy", email: "anaya.r@company.com", phone: "+44 20 7987 6543", countryCode: "GB", callTime: "5h 34m", callsToday: 19, type: "Outbound Only", status: "Offline", lastActive: "2 hours ago" },
-    { id: "10", initials: "DP", name: "Dev Patel", email: "dev.patel@company.com", phone: "+91 91234 56789", countryCode: "IN", callTime: "1h 13m", callsToday: 27, type: "Inbound Only", status: "On Call", lastActive: "Just now" },
-];
-
 export default function SupervisorTeamManagement() {
+    const [agents, setAgents] = useState<Agent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchValue, setSearchValue] = useState("");
-    const [statusFilter, setStatusFilter] = useState("");
-    const [roleFilter, setRoleFilter] = useState("");
+    const [callingTypeFilter, setCallingTypeFilter] = useState("all");
+    const [statusFilter, setStatusFilter] = useState("all");
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
-    const [sortKey, setSortKey] = useState<string>("name");
+    const [sortKey, setSortKey] = useState<string>("agent_name");
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
     const [currentPage, setCurrentPage] = useState(1);
-    const router = useRouter();
 
-    // Modal States
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+    const ITEMS_PER_PAGE = 10;
 
-    // Agent columns mapping
+    useEffect(() => {
+        const fetchAgents = async () => {
+            try {
+                const token = localStorage.getItem("token") || "";
+                const response = await fetch("https://api.vocalabstech.com/agents", {
+                    headers: {
+                        accept: "application/json",
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setAgents(data);
+                } else {
+                    console.error("Failed to fetch agents:", response.statusText);
+                }
+            } catch (error) {
+                console.error("Error fetching agents:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchAgents();
+    }, []);
+
+    const formatDate = (isoStr: string) => {
+        return new Date(isoStr).toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+        });
+    };
+
+    const getInitials = (name: string) => {
+        return name
+            .split(" ")
+            .map((p) => p[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+    };
+
     const columns: TableColumn<Agent>[] = [
         {
-            key: "name",
+            key: "agent_name",
             label: "Agent",
             sortable: true,
-            width: "w-[250px]",
+            width: "w-[220px]",
             render: (agent) => (
                 <div className="flex items-center gap-3 py-1">
                     <div className="h-10 w-10 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
-                        <span className="text-sm font-medium text-[#111]">{agent.initials}</span>
+                        <span className="text-sm font-medium text-[#111]">{getInitials(agent.agent_name)}</span>
                     </div>
                     <div className="flex flex-col">
-                        <span className="font-medium text-[#0C335C]">{agent.name}</span>
-                        <span className="text-xs text-gray-500">{agent.email}</span>
+                        <span className="font-medium text-[#0C335C]">{agent.agent_name}</span>
+                        <span className="text-xs text-gray-500 font-mono">{agent.agent_id}</span>
                     </div>
                 </div>
-            )
+            ),
         },
         {
-            key: "phone",
+            key: "phone_number",
             label: "Phone",
-            sortable: true,
-            width: "w-[150px]",
+            sortable: false,
+            width: "w-[160px]",
             render: (agent) => (
                 <div className="flex items-center gap-2">
-                    <span className="text-lg">{agent.countryCode === 'US' ? '🇺🇸' : agent.countryCode === 'GB' ? '🇬🇧' : agent.countryCode === 'IN' ? '🇮🇳' : '🇦🇺'}</span>
-                    <span className="text-gray-700">{agent.phone}</span>
+                    <Phone size={14} className="text-gray-400 shrink-0" />
+                    <span className="text-gray-700 font-mono text-xs">
+                        {agent.phone_number ?? <span className="text-gray-400 italic">No number</span>}
+                    </span>
                 </div>
-            )
+            ),
         },
         {
-            key: "status",
+            key: "calling_type",
+            label: "Calling Type",
+            sortable: true,
+            width: "w-[140px]",
+            render: (agent) => {
+                const both = agent.inbound_enabled && agent.outbound_enabled;
+                return (
+                    <div className="flex items-center gap-1.5 text-sm">
+                        {agent.inbound_enabled && (
+                            <ArrowDownToLine size={14} className="text-blue-500 shrink-0" />
+                        )}
+                        {agent.outbound_enabled && (
+                            <ArrowUpToLine size={14} className="text-orange-500 shrink-0" />
+                        )}
+                        <span className="capitalize text-gray-700">
+                            {both
+                                ? "Both"
+                                : agent.inbound_enabled
+                                    ? "Inbound"
+                                    : agent.outbound_enabled
+                                        ? "Outbound"
+                                        : "None"}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            key: "is_active",
             label: "Status",
             sortable: true,
-            width: "w-[120px]",
-            render: (agent) => {
-                let bg = "bg-[#1DB013]"; // Live
-                if (agent.status === "Offline") bg = "bg-[#6B7280]"; // Gray
-                if (agent.status === "On Call") bg = "bg-[#FE641F]"; // Orange
-                if (agent.status === "Paused") bg = "bg-[#F59E0B]"; // Amber
-                return (
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[10px] uppercase font-medium ${bg}`}>
-                        {agent.status !== "Offline" && <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />}
-                        {agent.status === "Offline" && <div className="w-1.5 h-1.5 rounded-full bg-white/50 shrink-0 border border-white" />}
-                        {agent.status}
+            width: "w-[110px]",
+            render: (agent) =>
+                agent.is_active ? (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 text-green-800 text-[11px] font-medium">
+                        <CheckCircle2 size={12} /> Active
                     </div>
-                );
-            }
-        },
-        {
-            key: "type",
-            label: "Role",
-            sortable: true,
-            width: "w-[150px]",
-            render: (agent) => {
-                return (
-                    <div className="flex items-center gap-1.5 text-gray-700">
-                        {agent.type.includes('Inbound') && <span className="text-[#1DB013] font-bold">↓</span>}
-                        {agent.type.includes('Outbound') && <span className="text-[#FE641F] font-bold">↑</span>}
-                        {agent.type === 'Both' && <span className="text-blue-500 font-bold">⇅</span>}
-                        <span>{agent.type === 'Both' ? 'Both' : agent.type.replace(' Only', '')}</span>
+                ) : (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 text-[11px] font-medium">
+                        <XCircle size={12} /> Inactive
                     </div>
-                );
-            }
+                ),
         },
         {
-            key: "callsToday",
-            label: "Today's Calls",
+            key: "twilio_sid",
+            label: "Twilio SID",
+            sortable: false,
+            width: "flex-1 min-w-[140px]",
+            render: (agent) => (
+                <span className="text-xs font-mono text-gray-500 truncate">
+                    {agent.twilio_sid ?? <span className="text-gray-300 italic">—</span>}
+                </span>
+            ),
+        },
+        {
+            key: "created_at",
+            label: "Joined",
             sortable: true,
             width: "w-[120px]",
-            render: (agent) => <span className="text-gray-700">{agent.callsToday} calls</span>
-        },
-        {
-            key: "callTime",
-            label: "Call Time",
-            sortable: true,
-            width: "w-[120px]",
-            render: (agent) => <span className="text-gray-700">{agent.callTime}</span>
-        },
-        {
-            key: "lastActive",
-            label: "Last Active",
-            sortable: true,
-            width: "w-[150px]",
-            render: (agent) => <span className="text-gray-500">{agent.lastActive}</span>
+            render: (agent) => (
+                <span className="text-sm text-gray-500">{formatDate(agent.created_at)}</span>
+            ),
         },
         {
             key: "actions",
             label: "Actions",
-            width: "w-[120px]",
+            width: "w-[80px]",
+            fixedRight: true,
             render: (agent) => (
-                <div className="flex items-center gap-1 justify-end">
+                <div className="flex items-center gap-1 justify-center">
                     <button
-                        onClick={() => router.push(`/test/agents/${agent.id}`)}
                         className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-400 group relative"
+                        title="View Agent"
                     >
-                        <Eye size={18} className="group-hover:text-[#0C335C]" />
-                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">View Details</span>
+                        <ExternalLink size={16} className="group-hover:text-[#0C335C]" />
                     </button>
-                    <button className="text-gray-400 hover:text-[#FE641F] transition-colors"><MoreHorizontal size={16} /></button>
                 </div>
-            )
-        }
+            ),
+        },
     ];
 
     // Filter Logic
     const filteredData = React.useMemo(() => {
-        let result = MOCK_AGENTS;
+        let result = agents;
 
         if (searchValue) {
             const lowerSearch = searchValue.toLowerCase();
-            result = result.filter(agent =>
-                agent.name.toLowerCase().includes(lowerSearch) ||
-                agent.email.toLowerCase().includes(lowerSearch) ||
-                agent.phone.toLowerCase().includes(lowerSearch)
+            result = result.filter(
+                (agent) =>
+                    agent.agent_name.toLowerCase().includes(lowerSearch) ||
+                    agent.agent_id.toLowerCase().includes(lowerSearch) ||
+                    (agent.phone_number ?? "").toLowerCase().includes(lowerSearch)
             );
         }
 
-        if (statusFilter && statusFilter !== 'all') {
-            result = result.filter(agent => agent.status.toLowerCase() === statusFilter.toLowerCase());
+        if (statusFilter !== "all") {
+            result = result.filter((agent) =>
+                statusFilter === "active" ? agent.is_active : !agent.is_active
+            );
         }
 
-        if (roleFilter && roleFilter !== 'all') {
-            result = result.filter(agent => agent.type.toLowerCase().includes(roleFilter.toLowerCase()));
+        if (callingTypeFilter !== "all") {
+            result = result.filter((agent) => {
+                if (callingTypeFilter === "inbound") return agent.inbound_enabled && !agent.outbound_enabled;
+                if (callingTypeFilter === "outbound") return agent.outbound_enabled && !agent.inbound_enabled;
+                if (callingTypeFilter === "both") return agent.inbound_enabled && agent.outbound_enabled;
+                return true;
+            });
         }
 
         return result;
-    }, [searchValue, statusFilter, roleFilter]);
+    }, [agents, searchValue, statusFilter, callingTypeFilter]);
 
-    const hasActiveFilters = searchValue !== "" || (statusFilter !== "" && statusFilter !== "all") || (roleFilter !== "" && roleFilter !== "all");
+    const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE) || 1;
+    const paginatedData = filteredData.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
+    const hasActiveFilters =
+        searchValue !== "" ||
+        (statusFilter !== "" && statusFilter !== "all") ||
+        (callingTypeFilter !== "" && callingTypeFilter !== "all");
 
     const handleClearFilters = () => {
         setSearchValue("");
         setStatusFilter("all");
-        setRoleFilter("all");
+        setCallingTypeFilter("all");
+        setCurrentPage(1);
     };
+
+    const activeCount = agents.filter((a) => a.is_active).length;
+    const inboundCount = agents.filter((a) => a.inbound_enabled).length;
+    const outboundCount = agents.filter((a) => a.outbound_enabled).length;
 
     return (
         <DashboardLayout>
-            <div className="h-full w-full">
-                <TableCard<Agent>
-                    title="Team Management"
-                    breadcrumbs={[
-                        { label: "Dashboard", href: "/" },
-                        { label: "Team Management" }
-                    ]}
-                    primaryAction={
-                        <button
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="bg-[#FE641F] text-white px-4 py-2 rounded-[12px] flex items-center gap-2 hover:bg-[#FE641F]/90 transition-colors"
-                        >
-                            <UserPlus size={18} />
-                            <span className="font-medium text-sm">Add Agent</span>
-                        </button>
-                    }
-                    secondaryAction={
-                        <button
-                            onClick={() => setIsBulkModalOpen(true)}
-                            className="bg-white border border-[#CBCBCB] text-[#0C335C] px-4 py-2 rounded-[12px] flex items-center gap-2 hover:bg-gray-50 transition-colors"
-                        >
-                            <UploadCloud size={18} />
-                            <span className="font-medium text-sm">Bulk Upload</span>
-                        </button>
-                    }
-
-                    // Search & Filters
-                    searchPlaceholder="Search agents..."
-                    searchValue={searchValue}
-                    onSearchChange={setSearchValue}
-                    onClearFilters={hasActiveFilters ? handleClearFilters : undefined}
-                    filters={[
-                        {
-                            key: "status",
-                            label: "All Status",
-                            value: statusFilter,
-                            onChange: setStatusFilter,
-                            options: [
-                                { label: "Live", value: "live" },
-                                { label: "Offline", value: "offline" },
-                                { label: "On Call", value: "on call" },
-                                { label: "Paused", value: "paused" }
-                            ]
-                        },
-                        {
-                            key: "role",
-                            label: "All Roles",
-                            value: roleFilter,
-                            onChange: setRoleFilter,
-                            options: [
-                                { label: "Inbound Only", value: "inbound" },
-                                { label: "Outbound Only", value: "outbound" },
-                                { label: "Both", value: "both" }
-                            ]
+            <div className="h-[calc(100vh-84px)] w-full flex flex-col p-6 overflow-hidden" style={{ background: "var(--background)" }}>
+                <div className="flex-1 overflow-hidden relative">
+                    {isLoading && (
+                        <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-2xl">
+                            <span className="text-4xl animate-spin">⏳</span>
+                            <p className="mt-4 text-navy font-semibold">Loading agents...</p>
+                        </div>
+                    )}
+                    <TableCard<Agent>
+                        title="Team Management"
+                        breadcrumbs={[
+                            { label: "Dashboard", href: "/" },
+                            { label: "Team Management" },
+                        ]}
+                        primaryAction={
+                            <button className="bg-[#FE641F] text-white px-4 py-2.5 rounded-[12px] flex items-center gap-2 hover:bg-[#FE641F]/90 transition-colors shadow-[0_4px_14px_0_rgba(254,100,31,0.30)] font-bold text-sm">
+                                <UserPlus size={18} />
+                                <span>Add Agent</span>
+                            </button>
                         }
-                    ]}
-
-                    // Stats Header
-                    stats={[
-                        { label: "Total Agents", value: "12" },
-                        { label: "Live Now", value: "8", valueColorClass: "text-[#1DB013]" },
-                        { label: "On Calls", value: "3", valueColorClass: "text-[#FE641F]" },
-                        { label: "Offline", value: "1", valueColorClass: "text-[#6B7280]" }
-                    ]}
-
-                    // Table Data
-                    columns={columns}
-                    data={filteredData}
-                    keyExtractor={(agent) => agent.id}
-
-                    // Interactivity
-                    selectable
-                    selectedKeys={selectedKeys}
-                    onSelectionChange={setSelectedKeys}
-
-                    clickableColumnIndex={0} // The "Agent" column turns orange on hover and is clickable
-                    onRowClick={(agent) => console.log("Clicked row name:", agent.name)}
-
-                    // Sorting internally via TableCard
-                    sortKey={sortKey}
-                    sortDirection={sortDirection}
-                    onSortChange={setSortKey}
-
-                    // Pagination
-                    pagination={{
-                        currentPage: currentPage,
-                        itemsPerPage: 10,
-                        totalItems: filteredData.length,
-                        totalPages: Math.ceil(filteredData.length / 10) || 1,
-                        onPageChange: setCurrentPage
-                    }}
-                />
+                        searchPlaceholder="Search by name, ID or phone..."
+                        searchValue={searchValue}
+                        onSearchChange={setSearchValue}
+                        onClearFilters={hasActiveFilters ? handleClearFilters : undefined}
+                        filters={[
+                            {
+                                key: "status",
+                                label: "Status",
+                                value: statusFilter,
+                                onChange: setStatusFilter,
+                                options: [
+                                    { label: "Active", value: "active" },
+                                    { label: "Inactive", value: "inactive" },
+                                ],
+                            },
+                            {
+                                key: "calling_type",
+                                label: "Calling Type",
+                                value: callingTypeFilter,
+                                onChange: setCallingTypeFilter,
+                                options: [
+                                    { label: "Inbound Only", value: "inbound" },
+                                    { label: "Outbound Only", value: "outbound" },
+                                    { label: "Both", value: "both" },
+                                ],
+                            },
+                        ]}
+                        stats={[
+                            { label: "Total Agents", value: agents.length.toString(), valueColorClass: "text-[#0C335C]" },
+                            { label: "Active", value: activeCount.toString(), valueColorClass: "text-green-600" },
+                            { label: "Inbound", value: inboundCount.toString(), valueColorClass: "text-blue-600" },
+                            { label: "Outbound", value: outboundCount.toString(), valueColorClass: "text-[#FE641F]" },
+                        ]}
+                        columns={columns}
+                        data={paginatedData}
+                        keyExtractor={(agent) => agent.id}
+                        selectable
+                        selectedKeys={selectedKeys}
+                        onSelectionChange={setSelectedKeys}
+                        sortKey={sortKey}
+                        sortDirection={sortDirection}
+                        onSortChange={setSortKey}
+                        pagination={{
+                            currentPage,
+                            itemsPerPage: ITEMS_PER_PAGE,
+                            totalItems: filteredData.length,
+                            totalPages,
+                            onPageChange: setCurrentPage,
+                        }}
+                    />
+                </div>
             </div>
-
-            <AddAgentModal
-                isOpen={isAddModalOpen}
-                onClose={() => setIsAddModalOpen(false)}
-                onSuccess={() => console.log("Agent added successfully!")}
-            />
-
-            <BulkUploadModal
-                isOpen={isBulkModalOpen}
-                onClose={() => setIsBulkModalOpen(false)}
-                onSuccess={() => console.log("Agents bulk uploaded successfully!")}
-            />
         </DashboardLayout>
     );
 }
