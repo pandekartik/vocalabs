@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useCallStore } from "@/store/useCallStore";
-import axios from "axios";
+import { INTELICONVOAPI } from "@/lib/axios";
 
 interface User {
     user_id: string;
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
             // Call the real backend: POST /auth/login
-            const response = await axios.post("https://api.vocalabstech.com/auth/login", {
+            const response = await INTELICONVOAPI.post("/auth/login", {
                 email,
                 password,
                 organization_slug: organizationSlug || "",
