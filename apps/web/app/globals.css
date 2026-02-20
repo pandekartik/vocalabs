@@ -4,49 +4,101 @@
 
 @layer base {
   :root {
-    --background: var(--Gradient, linear-gradient(180deg, #FFE0D1 0%, #DCEDFF 100%));
-    /* #111111 in HSL approx 0 0% 7% */
-    --foreground: 0 0% 7%;
+    /* ── Page Background ─────────────────────────── */
+    --background: linear-gradient(180deg, #FFE0D1 0%, #DCEDFF 100%);
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 7%;
+    /* ── Brand Colors ────────────────────────────── */
+    --vl-brand:          #FE641F;
+    --vl-brand-hover:    #e5550f;
+    --vl-brand-dim:      rgba(254, 100, 31, 0.12);
+    --vl-brand-shadow:   0px 4px 14px rgba(254, 100, 31, 0.30);
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 7%;
+    /* ── Neutrals ────────────────────────────────── */
+    --vl-navy:     #0C335C;
+    --vl-ink:      #111111;
+    --vl-gray-1:   #F5F6FA;
+    --vl-gray-2:   #CBCBCB;
+    --vl-gray-3:   #7A7A7A;
+    --vl-gray-4:   #E5E7EB;
 
-    /* #FE641F in HSL approx 19 99% 56% */
-    --primary: 19 99% 56%;
-    --primary-foreground: 0 0% 100%;
+    /* ── Status ──────────────────────────────────── */
+    --vl-green:    #1DB013;
+    --vl-red:      #B01313;
+    --vl-blue:     #3B82F6;
+    --vl-orange:   #FE641F; /* same as brand for "On Call" */
+    --vl-amber:    #F59E0B;
 
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
+    /* ── Surface Gradients ───────────────────────── */
+    --vl-glass:
+      linear-gradient(93.78deg, rgba(255, 255, 255, 0.40) 0%, rgba(255, 255, 255, 0.80) 100%);
+    --vl-glass-top:
+      linear-gradient(95deg, rgba(255, 255, 255, 0.40) 0%, rgba(255, 255, 255, 0.80) 100%);
+    --vl-glass-dark:
+      linear-gradient(95.95deg, rgba(17, 17, 17, 0.05) 4.09%, rgba(17, 17, 17, 0.02) 105.58%);
+    --vl-glass-dark-alt:
+      linear-gradient(132.68deg, rgba(17, 17, 17, 0.05) 4.09%, rgba(17, 17, 17, 0.02) 105.58%);
 
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    /* ── Shadows ─────────────────────────────────── */
+    --vl-shadow-sm:     0px 4px 8px rgba(26, 26, 26, 0.12);
+    --vl-shadow-md:     0px 8px 24px rgba(26, 26, 26, 0.12);
+    --vl-shadow-orange: 0px 4px 14px rgba(254, 100, 31, 0.30);
 
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    /* ── Border Radius ───────────────────────────── */
+    --vl-radius-pill: 9999px;
+    --vl-radius-sm:   12px;   /* buttons, inputs, pills */
+    --vl-radius-md:   16px;   /* small cards, table rows */
+    --vl-radius-lg:   24px;   /* modals, large cards */
+    --vl-radius-xl:   32px;   /* top-level modal shells */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    /* ── Typography Scale ────────────────────────── */
+    /* Font Family: IBM Plex Sans is set globally — no override needed */
+    --vl-font-caps:   10px;   /* uppercase micro labels */
+    --vl-font-xs:     12px;   /* secondary/helper text */
+    --vl-font-sm:     13px;   /* table content, small ui */
+    --vl-font-base:   14px;   /* body text (body default) */
+    --vl-font-md:     16px;   /* card titles, inputs */
+    --vl-font-lg:     18px;   /* section headings */
+    --vl-font-xl:     22px;   /* modal headings */
+    --vl-font-2xl:    28px;   /* page headings */
 
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 19 99% 56%;
-
-    --radius: 0.5rem;
+    /* ── Legacy Shadcn Tokens (keep for ui/ components) ─── */
+    --foreground:               0 0% 7%;
+    --card:                     0 0% 100%;
+    --card-foreground:          0 0% 7%;
+    --popover:                  0 0% 100%;
+    --popover-foreground:       0 0% 7%;
+    --primary:                  19 99% 56%;
+    --primary-foreground:       0 0% 100%;
+    --secondary:                240 4.8% 95.9%;
+    --secondary-foreground:     240 5.9% 10%;
+    --muted:                    240 4.8% 95.9%;
+    --muted-foreground:         240 3.8% 46.1%;
+    --accent:                   240 4.8% 95.9%;
+    --accent-foreground:        240 5.9% 10%;
+    --destructive:              0 84.2% 60.2%;
+    --destructive-foreground:   0 0% 98%;
+    --border:                   240 5.9% 90%;
+    --input:                    240 5.9% 90%;
+    --ring:                     19 99% 56%;
+    --radius:                   0.5rem;
   }
 }
 
 @layer base {
   * {
     @apply border-[hsl(var(--border))];
+    box-sizing: border-box;
   }
 
   body {
     background: var(--background) no-repeat fixed center center / cover;
-    color: hsl(var(--foreground));
-    font-size: 14px;
-    font-family: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+    color: var(--vl-ink);
+    font-size: var(--vl-font-base);
+    /* IBM Plex Sans loaded in layout.tsx via next/font — applied via font-sans class on <html> */
+  }
+
+  /* Ensure no stray default fonts bleed through */
+  h1, h2, h3, h4, h5, h6, p, span, button, input, select, textarea, label {
+    font-family: inherit;
   }
 }
