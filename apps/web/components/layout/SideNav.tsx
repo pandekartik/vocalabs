@@ -50,7 +50,23 @@ const AGENT_ITEMS = [
     { icon: Settings, label: "Settings", href: "/settings" },
 ];
 
-type UserRole = "SUPERVISOR" | "AGENT";
+const PLATFORM_ADMIN_ITEMS = [
+    { icon: BarChart, label: "Dashboard", href: "/admin/platform" },
+    { icon: Users, label: "Organizations", href: "/admin/platform/orgs" },
+    { icon: Settings, label: "System Health", href: "/admin/platform/health" },
+    { icon: Settings, label: "Settings", href: "/admin/platform/settings" },
+];
+
+const ORG_ADMIN_ITEMS = [
+    { icon: BarChart, label: "Dashboard", href: "/admin/org" },
+    { icon: Users, label: "User Management", href: "/admin/org/users" },
+    { icon: Users, label: "Supervisors", href: "/admin/org/supervisors" },
+    { icon: Phone, label: "Calls Overview", href: "/admin/org/calls" },
+    { icon: Clock, label: "Audit Log", href: "/admin/org/audit" },
+    { icon: Settings, label: "Settings", href: "/admin/org/settings" },
+];
+
+type UserRole = "SUPERVISOR" | "AGENT" | "PLATFORM_ADMIN" | "ORG_ADMIN";
 
 export function SideNav() {
     const pathname = usePathname();
@@ -58,6 +74,14 @@ export function SideNav() {
     const [role, setRole] = useState<UserRole | null>(null);
 
     useEffect(() => {
+        if (pathname.startsWith("/admin/platform")) {
+            setRole("PLATFORM_ADMIN");
+            return;
+        }
+        if (pathname.startsWith("/admin/org")) {
+            setRole("ORG_ADMIN");
+            return;
+        }
         if (pathname.startsWith("/dashboard")) {
             setRole("SUPERVISOR");
             return;
@@ -67,7 +91,9 @@ export function SideNav() {
             if (userStr) {
                 const user = JSON.parse(userStr);
                 const r = user?.role?.toUpperCase();
-                if (r === "SUPERVISOR" || r === "MANAGER") setRole("SUPERVISOR");
+                if (r === "PLATFORM_ADMIN") setRole("PLATFORM_ADMIN");
+                else if (r === "ORG_ADMIN") setRole("ORG_ADMIN");
+                else if (r === "SUPERVISOR" || r === "MANAGER") setRole("SUPERVISOR");
                 else setRole("AGENT");
             } else {
                 setRole("AGENT");
@@ -77,7 +103,10 @@ export function SideNav() {
         }
     }, [pathname]);
 
-    const items = role === "SUPERVISOR" ? SUPERVISOR_ITEMS : AGENT_ITEMS;
+    const items = role === "PLATFORM_ADMIN" ? PLATFORM_ADMIN_ITEMS
+        : role === "ORG_ADMIN" ? ORG_ADMIN_ITEMS
+            : role === "SUPERVISOR" ? SUPERVISOR_ITEMS
+                : AGENT_ITEMS;
 
     return (
         <aside className="fixed left-6 top-[84px] h-[calc(100vh-108px)] w-[193px] shrink-0">
