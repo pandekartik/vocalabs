@@ -393,7 +393,7 @@ function AuditLogScreen() {
         {
             key: "user", label: "User", width: "w-[180px]", render: (l) => (
                 <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center text-[10px] font-medium">{l.user[0].toUpperCase()}</div>
+                    <div className="h-6 w-6 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center text-[10px] font-medium">{l.user?.[0]?.toUpperCase() || '?'}</div>
                     <span className="text-xs text-gray-700">{l.user}</span>
                 </div>
             )
