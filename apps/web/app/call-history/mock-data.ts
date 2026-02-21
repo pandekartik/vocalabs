@@ -73,7 +73,7 @@ function generateMockCalls(count: number): CallRecord[] {
             id: `C${100000 + Math.floor(Math.random() * 899999)}`,
             call_sid: `CA${Math.random().toString(36).substring(2, 15)}`,
             stream_sid: `MZ${Math.random().toString(36).substring(2, 15)}`,
-            direction,
+            direction: direction as string,
             status: status as string,
             from_number: direction === "inbound" ? `+1-555-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}` : "+1-800-VOCALAB",
             to_number: direction === "outbound" ? `+1-555-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}` : "+1-800-VOCALAB",
