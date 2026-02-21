@@ -108,8 +108,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else if (newUser.role === "ORG_ADMIN") {
                 router.push("/admin/org");
             } else {
-                // AGENT and SUPERVISOR map to the Dialer, which is the root ("/") 
-                router.push("/");
+                // AGENT and SUPERVISOR map to the Dialer, which is now "/dialer"
+                router.push("/dialer");
             }
         } catch (err: any) {
             const detail = err?.response?.data?.detail;
