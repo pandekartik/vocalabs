@@ -17,6 +17,14 @@ export default function Home() {
       if (!localStorage.getItem("user")) {
         router.push("/login");
       }
+    } else {
+      // If user is logged in, ensure they are on the right default page for their role
+      if (user.role === "PLATFORM_ADMIN") {
+        router.push("/admin/platform");
+      } else if (user.role === "ORG_ADMIN") {
+        router.push("/admin/org");
+      }
+      // AGENT and SUPERVISOR stay on root ("/") for the Dialer.
     }
   }, [user, router]);
 

@@ -102,7 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 useCallStore.getState().initializeDevice();
             }, 100);
 
-            router.push("/");
+            // Role-based routing
+            if (newUser.role === "PLATFORM_ADMIN") {
+                router.push("/admin/platform");
+            } else if (newUser.role === "ORG_ADMIN") {
+                router.push("/admin/org");
+            } else {
+                // AGENT and SUPERVISOR map to the Dialer, which is the root ("/") 
+                router.push("/");
+            }
         } catch (err: any) {
             const detail = err?.response?.data?.detail;
             const message = detail || err.message || "Login failed";
