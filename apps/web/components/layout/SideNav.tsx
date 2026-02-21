@@ -35,7 +35,7 @@ function NavItem({ icon: Icon, label, href, isActive }: NavItemProps) {
 }
 
 const SUPERVISOR_ITEMS = [
-    { icon: Phone, label: "Dialer", href: "/" },
+    { icon: Phone, label: "Dialer", href: "/dialer" },
     { icon: Clock, label: "Call History", href: "/call-history" },
     { icon: Users, label: "Team", href: "/dashboard/team" },
     { icon: Voicemail, label: "Voicemails", href: "/dashboard/voicemails" },
@@ -44,7 +44,7 @@ const SUPERVISOR_ITEMS = [
 ];
 
 const AGENT_ITEMS = [
-    { icon: Phone, label: "Dialer", href: "/" },
+    { icon: Phone, label: "Dialer", href: "/dialer" },
     { icon: Clock, label: "Call History", href: "/call-history" },
     { icon: Bell, label: "Reminders", href: "/reminders" },
     { icon: Settings, label: "Settings", href: "/settings" },
@@ -120,8 +120,8 @@ export function SideNav() {
                             key={item.href}
                             {...item}
                             isActive={
-                                item.href === "/"
-                                    ? pathname === "/"
+                                item.href === "/dialer"
+                                    ? pathname === "/dialer"
                                     : item.href === "/dashboard/team"
                                         ? pathname === "/dashboard/team"
                                         : pathname.startsWith(item.href)

@@ -14,7 +14,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         if (isInitialized && !isLoading) {
             if (!user) {
                 // If the user isn't authenticated yet, send to login
-                router.push("/login?redirect_to=" + encodeURIComponent(pathname));
+                router.push("/?redirect_to=" + encodeURIComponent(pathname));
             } else {
                 // Determine if they are allowed on this route
                 const userRole = user.role?.toUpperCase();
@@ -25,14 +25,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                     } else if (userRole === "ORG_ADMIN") {
                         router.push("/admin/org");
                     } else {
+                        router.push("/dialer");
+                    }
+                } else if (pathname === "/dialer") {
+                    if (userRole === "SUPERVISOR" || userRole === "MANAGER" || userRole === "AGENT") {
                         setIsChecking(false);
+                    } else {
+                        // Admins should not be on dialer
+                        router.push("/");
                     }
                 } else if (pathname.startsWith("/dashboard")) {
                     if (userRole === "SUPERVISOR" || userRole === "MANAGER") {
                         setIsChecking(false);
                     } else {
-                        // Regular agents should go to /call-history
-                        router.push("/call-history");
+                        // Regular agents should go to dialer, admins to their dashboards. Let root handle it.
+                        router.push("/");
                     }
                 } else if (pathname.startsWith("/admin/platform")) {
                     if (userRole === "PLATFORM_ADMIN") {

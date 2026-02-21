@@ -1,44 +1,145 @@
 "use client";
 
-import { useEffect } from "react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import DashboardClient from "@/components/dashboard/DashboardClient";
-import { useAuth } from "@/context/AuthContext";
+import React, { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Mail, LockKeyhole, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { VLButton, VLInput } from "@/components/ui/vl";
 
-export default function Home() {
-  const { user } = useAuth();
-  const router = useRouter();
+export default function LoginPage() {
+    const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const { login, isLoading, user, isInitialized } = useAuth();
+    const router = useRouter();
 
-  useEffect(() => {
-    // Slight delay to allow context to hydration
-    if (!user) {
-      // Check localStorage directly to avoid flicker if context is slow
-      if (!localStorage.getItem("user")) {
-        router.push("/login");
-      }
-    } else {
-      // If user is logged in, ensure they are on the right default page for their role
-      if (user.role === "PLATFORM_ADMIN") {
-        router.push("/admin/platform");
-      } else if (user.role === "ORG_ADMIN") {
-        router.push("/admin/org");
-      }
-      // AGENT and SUPERVISOR stay on root ("/") for the Dialer.
-    }
-  }, [user, router]);
+    React.useEffect(() => {
+        if (isInitialized && user) {
+            const role = user.role?.toUpperCase();
+            if (role === "PLATFORM_ADMIN") router.push("/admin/platform");
+            else if (role === "ORG_ADMIN") router.push("/admin/org");
+            else router.push("/dialer");
+        }
+    }, [user, isInitialized, router]);
 
-  if (!user) return null; // Or a loading spinner
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        if (!email || !password) {
+            setError("Please enter both email and password.");
+            return;
+        }
+        try {
+            await login(email, password, rememberMe);
+        } catch (err: any) {
+            setError(err.message || "Login failed. Please try again.");
+        }
+    };
 
-  // If user is an admin, they will be redirected by the useEffect.
-  // We return null here to prevent the Dialer from flashing.
-  if (user.role === "PLATFORM_ADMIN" || user.role === "ORG_ADMIN") {
-    return null;
-  }
+    return (
+        <div className="min-h-screen w-full flex items-center justify-center p-4"
+            style={{ background: "var(--background)", minHeight: "812px" }}>
 
-  return (
-    <DashboardLayout>
-      <DashboardClient />
-    </DashboardLayout>
-  );
+            <div className="bg-white rounded-xl w-full max-w-[480px] p-8 md:p-12 flex flex-col items-center shadow-vl-md">
+                {/* Logo */}
+                <div className="mb-8">
+                    <Image
+                        src="/Logo.png"
+                        alt="Voca Labs"
+                        width={180}
+                        height={50}
+                        className="h-auto w-auto"
+                        priority
+                    />
+                </div>
+
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <h1 className="text-vl-xl font-bold text-navy mb-1">Welcome back</h1>
+                    <p className="text-vl-sm text-vl-gray-3">Please enter your details to sign in.</p>
+                </div>
+
+                {/* Error */}
+                {error && (
+                    <div className="w-full mb-5 p-3 rounded-sm bg-red-50 border border-red-200 text-danger text-vl-sm text-center">
+                        {error}
+                    </div>
+                )}
+
+                {/* Form */}
+                <form className="w-full flex flex-col gap-5" onSubmit={handleLogin}>
+                    <VLInput
+                        label="Email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        icon={<Mail size={16} />}
+                        variant="filled"
+                        required
+                    />
+
+                    <div className="flex flex-col gap-1.5">
+                        <div className="flex justify-between items-center">
+                            <label className="text-vl-sm font-medium text-navy">Password <span className="text-danger">*</span></label>
+                            <Link href="/forgot-password" className="text-vl-xs font-semibold text-brand hover:text-brand-hover">
+                                Forgot Password?
+                            </Link>
+                        </div>
+                        <VLInput
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Enter your password"
+                            icon={<LockKeyhole size={16} />}
+                            variant="filled"
+                            rightAdornment={
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="text-vl-gray-3 hover:text-ink focus:outline-none"
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            }
+                            required
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            id="remember-me"
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="appearance-none h-4 w-4 rounded-[4px] border border-vl-gray-2 bg-white checked:bg-brand checked:border-brand cursor-pointer focus:ring-1 focus:ring-brand focus:ring-offset-1 focus:outline-none transition-colors"
+                            style={{
+                                backgroundImage: rememberMe ? `url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 8.5L7 11.5L12 4.5' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")` : 'none',
+                                backgroundPosition: 'center',
+                                backgroundRepeat: 'no-repeat',
+                                backgroundSize: '100% 100%'
+                            }}
+                        />
+                        <label htmlFor="remember-me" className="text-vl-sm text-vl-gray-3 cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>
+                            Remember me for 90 days
+                        </label>
+                    </div>
+
+                    <VLButton
+                        type="submit"
+                        variant="primary"
+                        size="lg"
+                        isLoading={isLoading}
+                        className="w-full justify-center mt-1 text-white"
+                    >
+                        Sign In
+                    </VLButton>
+                </form>
+            </div>
+        </div>
+    );
 }
