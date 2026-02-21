@@ -30,6 +30,12 @@ export default function Home() {
 
   if (!user) return null; // Or a loading spinner
 
+  // If user is an admin, they will be redirected by the useEffect.
+  // We return null here to prevent the Dialer from flashing.
+  if (user.role === "PLATFORM_ADMIN" || user.role === "ORG_ADMIN") {
+    return null;
+  }
+
   return (
     <DashboardLayout>
       <DashboardClient />

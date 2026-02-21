@@ -17,14 +17,34 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                 router.push("/login?redirect_to=" + encodeURIComponent(pathname));
             } else {
                 // Determine if they are allowed on this route
-                // If it's a /dashboard route, require supervisor/manager role
-                if (pathname.startsWith("/dashboard")) {
-                    const r = user.role?.toUpperCase();
-                    if (r === "SUPERVISOR" || r === "MANAGER") {
+                const userRole = user.role?.toUpperCase();
+
+                if (pathname === "/") {
+                    if (userRole === "PLATFORM_ADMIN") {
+                        router.push("/admin/platform");
+                    } else if (userRole === "ORG_ADMIN") {
+                        router.push("/admin/org");
+                    } else {
+                        setIsChecking(false);
+                    }
+                } else if (pathname.startsWith("/dashboard")) {
+                    if (userRole === "SUPERVISOR" || userRole === "MANAGER") {
                         setIsChecking(false);
                     } else {
                         // Regular agents should go to /call-history
                         router.push("/call-history");
+                    }
+                } else if (pathname.startsWith("/admin/platform")) {
+                    if (userRole === "PLATFORM_ADMIN") {
+                        setIsChecking(false);
+                    } else {
+                        router.push("/");
+                    }
+                } else if (pathname.startsWith("/admin/org")) {
+                    if (userRole === "ORG_ADMIN" || userRole === "PLATFORM_ADMIN") {
+                        setIsChecking(false);
+                    } else {
+                        router.push("/");
                     }
                 } else {
                     // Regular agent / call-history routes
