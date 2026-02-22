@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { User, Shield, FileText } from "lucide-react";
 import { VLModal, VLButton, VLInput, VLToggle, VLStepper } from "@/components/ui/vl";
+import { INTELICONVOAPI } from "@/lib/axios";
 
 interface AddAgentModalProps {
     isOpen: boolean;
@@ -35,19 +36,44 @@ export function AddAgentModal({ isOpen, onClose, onSuccess }: AddAgentModalProps
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
 
     const reset = () => {
         setStep(1); setFirstName(""); setLastName(""); setEmail(""); setPhone(""); setEmployeeId("");
-        setRole(""); setHasDailyLimit(false); setHasDurationLimit(false);
+        setRole(""); setHasDailyLimit(false); setHasDurationLimit(false); setErrorMsg("");
     };
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
-        setTimeout(() => {
+        setErrorMsg("");
+        try {
+            const token = localStorage.getItem("token");
+            const agentName = `${firstName} ${lastName}`.trim();
+            // Generate agent_id from email prefix (e.g., john.doe@co.com → agent_john.doe)
+            const agentId = `agent_${email.split("@")[0]}`;
+
+            const payload: any = {
+                email,
+                agent_name: agentName,
+                agent_id: agentId,
+                calling_type: role === "both" ? "inbound" : role, // 'inbound' or 'outbound'
+                inbound_enabled: role === "inbound" || role === "both",
+                outbound_enabled: role === "outbound" || role === "both",
+            };
+
+            await INTELICONVOAPI.post("/agents/create", payload, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
             setIsSubmitting(false);
             setShowSuccess(true);
             setTimeout(() => { setShowSuccess(false); onSuccess(); onClose(); reset(); }, 2000);
-        }, 1000);
+        } catch (e: any) {
+            setIsSubmitting(false);
+            const detail = e?.response?.data?.detail || e?.message || "Failed to create agent";
+            setErrorMsg(typeof detail === "string" ? detail : JSON.stringify(detail));
+            console.error("Failed to create agent:", e);
+        }
     };
 
     const isStep1Valid = firstName.trim() && lastName.trim() && email.includes("@");
@@ -158,6 +184,11 @@ export function AddAgentModal({ isOpen, onClose, onSuccess }: AddAgentModalProps
                     </div>
                 </div>
             ))}
+            {errorMsg && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-vl-sm text-red-600">{errorMsg}</p>
+                </div>
+            )}
         </div>
     );
 

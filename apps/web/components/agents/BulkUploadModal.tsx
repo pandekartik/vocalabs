@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { UploadCloud, FileText, CheckCircle, ChevronDown, ChevronUp, FileUp, XCircle, AlertCircle } from "lucide-react";
 import { VLModal, VLButton, VLCard } from "@/components/ui/vl";
+import { INTELICONVOAPI } from "@/lib/axios";
 
 interface BulkUploadModalProps {
     isOpen: boolean;
@@ -12,29 +13,54 @@ interface BulkUploadModalProps {
 
 type UploadState = "idle" | "uploading" | "validating" | "results";
 
-const MOCK_ERRORS = [
-    { row: 12, error: "Invalid phone number format" },
-    { row: 28, error: "Missing required field: Email" },
-    { row: 31, error: "Role must be Inbound, Outbound, or Both" },
-];
+interface RowError {
+    row: number;
+    error: string;
+}
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
     const [state, setState] = useState<UploadState>("idle");
     const [isDragging, setIsDragging] = useState(false);
     const [showTemplate, setShowTemplate] = useState(false);
     const [results, setResults] = useState({ total: 0, passed: 0, failed: 0 });
+    const [rowErrors, setRowErrors] = useState<RowError[]>([]);
     const fileRef = useRef<HTMLInputElement>(null);
 
-    const processFile = (file: File) => {
-        if (!file.name.endsWith(".csv")) { alert("Please upload a CSV file"); return; }
+    const processFile = async (file: File) => {
+        if (!file.name.endsWith(".csv") && !file.name.endsWith(".xlsx")) {
+            alert("Please upload a CSV or XLSX file");
+            return;
+        }
         setState("uploading");
-        setTimeout(() => {
+        try {
+            const token = localStorage.getItem("token");
+            const formData = new FormData();
+            formData.append("file", file);
+
             setState("validating");
-            setTimeout(() => {
-                setResults({ total: 45, passed: 42, failed: 3 });
-                setState("results");
-            }, 1500);
-        }, 1000);
+            const res = await INTELICONVOAPI.post("/agents/bulk-import", formData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+
+            const data = res.data;
+            const created = data.created || [];
+            const failed = data.failed || [];
+            setResults({
+                total: created.length + failed.length,
+                passed: created.length,
+                failed: failed.length,
+            });
+            setRowErrors(failed.map((f: any) => ({ row: f.row, error: f.error })));
+            setState("results");
+        } catch (e: any) {
+            console.error("Bulk import failed:", e);
+            const detail = e?.response?.data?.detail || e?.message || "Upload failed";
+            alert(typeof detail === "string" ? detail : JSON.stringify(detail));
+            setState("idle");
+        }
     };
 
     const handleDrop = (e: React.DragEvent) => {
@@ -45,7 +71,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         const f = e.target.files?.[0]; if (f) processFile(f);
     };
     const handleImport = () => { setState("idle"); onSuccess(); onClose(); };
-    const reset = () => { setState("idle"); setResults({ total: 0, passed: 0, failed: 0 }); };
+    const reset = () => { setState("idle"); setResults({ total: 0, passed: 0, failed: 0 }); setRowErrors([]); };
 
     const isProcessing = state === "uploading" || state === "validating";
 
@@ -182,7 +208,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                 <span className="text-vl-sm font-medium text-navy">Row Errors</span>
                             </div>
                             <div className="max-h-36 overflow-y-auto">
-                                {MOCK_ERRORS.map((err, i) => (
+                                {rowErrors.map((err: RowError, i: number) => (
                                     <div key={i} className="flex gap-4 px-4 py-2.5 border-b border-vl-gray-4 last:border-0 hover:bg-vl-gray-1">
                                         <span className="font-mono text-vl-xs text-vl-gray-3 w-12 shrink-0">Row {err.row}</span>
                                         <span className="text-vl-xs text-danger">{err.error}</span>

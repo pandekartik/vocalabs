@@ -23,7 +23,11 @@ export default function DashboardClient() {
         showPostCallDrawer,
         setShowPostCallDrawer,
         showVoicemailToast,
-        setShowVoicemailToast
+        setShowVoicemailToast,
+        phoneNumber,
+        callId,
+        callSid,
+        streamSid,
     } = useCallStore();
     const isCallActive = ['connecting', 'ringing', 'in-progress'].includes(callStatus);
 
@@ -60,12 +64,16 @@ export default function DashboardClient() {
                 onAccept={acceptIncomingCall}
                 onDecline={rejectIncomingCall}
                 onClose={rejectIncomingCall}
-                callerName={incomingCall?.parameters?.From || "Unknown Caller"}
+                callerName={phoneNumber || incomingCall?.parameters?.From || "Unknown Caller"}
             />
 
             <PostCallDrawer
                 isOpen={showPostCallDrawer}
                 onClose={() => setShowPostCallDrawer(false)}
+                callId={callId}
+                callSid={callSid}
+                phoneNumber={phoneNumber}
+                streamSid={streamSid}
             />
 
             <VoicemailToast

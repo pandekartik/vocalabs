@@ -19,9 +19,11 @@ export interface CallRecord {
     agent_number: string;
     duration: number; // in seconds
     recording_url: string;
+    recording_gcs_url: string | null;
     transcript: string;
     ai_summary: string;
     overall_sentiment: string;
+    disconnect_reason: string | null;
     agent_notes: string;
     tags: string; // the API schema provides it as a string
     started_at: string; // ISO String

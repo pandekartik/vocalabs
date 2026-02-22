@@ -2,6 +2,10 @@
 import { create } from 'zustand';
 import { Device, Call } from '@twilio/voice-sdk';
 import { APIUSER, APIUSERDIAL } from '@/lib/axios';
+import { playRecordingPaused, playRecordingResumed, playHoldOn, playHoldOff } from '@/lib/callSounds';
+
+// Module-level reference to the outbound WebSocket so auto-accept can attach it to the call
+let _outboundWs: WebSocket | null = null;
 
 interface TranscriptMessage {
     speaker: 'Agent' | 'Customer';
@@ -11,7 +15,7 @@ interface TranscriptMessage {
 interface CallState {
     device: Device | null;
     connection: Call | null;
-    callStatus: 'idle' | 'registered' | 'connecting' | 'ringing' | 'in-progress' | 'ended' | 'error';
+    callStatus: 'idle' | 'registered' | 'connecting' | 'ringing' | 'in-progress' | 'ending' | 'ended' | 'error';
     isMuted: boolean;
     isOnHold: boolean;
     isRecordingPaused: boolean;
@@ -43,8 +47,8 @@ interface CallState {
     rejectIncomingCall: () => void;
     sendDTMF: (digit: string) => void;
     toggleMute: () => void;
-    toggleHold: () => void;
-    toggleRecording: () => void;
+    toggleHold: () => Promise<void>;
+    toggleRecording: () => Promise<void>;
     addTranscriptMessage: (message: TranscriptMessage) => void;
     resetState: () => void;
     setMockState: (state: Partial<CallState>) => void;
@@ -215,13 +219,53 @@ export const useCallStore = create<CallState>((set, get) => ({
                         callStatus: 'in-progress',
                     });
 
+                    // Attach the outbound WebSocket to the call object for cleanup in endCall()
+                    if (_outboundWs) {
+                        (call as any)._ws = _outboundWs;
+                        _outboundWs = null;
+                    }
+
                     const timer = setInterval(() => {
                         set((state) => ({ duration: state.duration + 1 }));
                     }, 1000);
                     (call as any)._timer = timer;
 
-                    call.on("disconnect", () => {
-                        console.log("� Call disconnected");
+                    call.on("disconnect", async (call: any) => {
+                        console.log("📞 Call disconnected (outbound call ended)", {
+                            callSid: get().callSid,
+                            callParameters: call?.parameters,
+                        });
+                        // Guard: if we're on hold, the conference state change can
+                        // trigger a spurious disconnect event — don't end the call.
+                        if (get().isOnHold) {
+                            console.log("⚠️ Disconnect during hold — ignoring (conference state change)");
+                            return;
+                        }
+                        // Report disconnect reason to backend (customer initiated)
+                        // MUST complete before endCall() to avoid race condition
+                        // where /end sets disconnect_reason=AGENT before this arrives
+                        const token = localStorage.getItem("token");
+                        const currentCallSid = get().callSid;
+                        if (currentCallSid && token) {
+                            try {
+                                await APIUSERDIAL.post(`/${currentCallSid}/disconnect-reason`, { reason: 'customer' }, {
+                                    headers: { Authorization: `Bearer ${token}` },
+                                });
+                                console.log("✅ Disconnect reason (customer) saved before endCall");
+                            } catch (e) {
+                                console.warn("Failed to save disconnect reason:", e);
+                            }
+                        }
+                        get().endCall();
+                    });
+
+                    call.on("cancel", () => {
+                        console.log("📞 Call canceled (outbound call was canceled)");
+                        get().endCall();
+                    });
+
+                    call.on("reject", () => {
+                        console.log("📞 Call rejected (outbound call was rejected)");
                         get().endCall();
                     });
 
@@ -233,7 +277,15 @@ export const useCallStore = create<CallState>((set, get) => ({
                 } else {
                     // Genuine inbound call — show popup
                     const inboundCallSid = call.parameters?.CallSid || null;
-                    set({ incomingCall: call, callSid: inboundCallSid });
+                    // Read customer's phone number from custom parameters
+                    // (passed by backend via add_agent_to_conference)
+                    const customerNum = (call as any).customParameters?.get?.('customerNumber')
+                        || call.parameters?.From || null;
+                    set({
+                        incomingCall: call,
+                        callSid: inboundCallSid,
+                        phoneNumber: customerNum || 'Unknown',
+                    });
 
                     // Pre-fetch stream_sid so it's ready when user accepts
                     // (WebSocket needs stream_sid, not CallSid, for transcript delivery)
@@ -243,9 +295,16 @@ export const useCallStore = create<CallState>((set, get) => ({
                             APIUSERDIAL.get(`/${inboundCallSid}/stream-info`, {
                                 headers: { Authorization: `Bearer ${token}` },
                             }).then((res) => {
-                                const { stream_sid, call_id } = res.data;
-                                set({ streamSid: stream_sid, callId: call_id });
-                                console.log("📡 Pre-fetched stream info for inbound:", { stream_sid, call_id });
+                                const { stream_sid, call_id, call_sid } = res.data;
+                                // IMPORTANT: call_sid from stream-info is the CUSTOMER's
+                                // call_sid (resolved via Redis mapping). All backend
+                                // endpoints need this — not the agent's participant SID.
+                                set({
+                                    streamSid: stream_sid,
+                                    callId: call_id,
+                                    callSid: call_sid || inboundCallSid,
+                                });
+                                console.log("📡 Pre-fetched stream info for inbound:", { stream_sid, call_id, call_sid });
                             }).catch((e) => {
                                 console.warn("Failed to fetch stream info:", e);
                             });
@@ -432,11 +491,26 @@ export const useCallStore = create<CallState>((set, get) => ({
 
             // 2. Connect WebSocket for live transcription and events
             const ws = new WebSocket(frontend_url);
-            ws.onopen = () => console.log("✅ WebSocket connected for call events");
+            _outboundWs = ws; // Store reference for auto-accept handler
+            ws.onopen = () => {
+                console.log("✅ WebSocket connected for call events");
+                // Send keepalive pings every 15s to prevent nginx/proxy from
+                // closing the connection due to inactivity
+                const pingInterval = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ event: "ping" }));
+                    } else {
+                        clearInterval(pingInterval);
+                    }
+                }, 15000);
+                (ws as any)._pingInterval = pingInterval;
+            };
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log("📨 WS message received:", data.event);
+                    if (data.event !== "heartbeat" && data.event !== "pong") {
+                        console.log("📨 WS message received:", data.event);
+                    }
 
                     // Full transcript content from STT (matching reference agent-assist pattern)
                     // Replaces entire transcript array with properly-tagged conversation
@@ -466,18 +540,63 @@ export const useCallStore = create<CallState>((set, get) => ({
                     if (data.event === "stream_ended") {
                         console.log("📡 Stream ended, call complete");
                     }
+
+                    // Call ended — backend pushes this when Twilio sends terminal status
+                    // (completed, failed, busy, no-answer, canceled)
+                    // Critical for pre-bridge: customer rejects/doesn't answer →
+                    // agent's Device never gets incoming call → no "disconnect" event.
+                    // This WebSocket event is the only way for frontend to know.
+                    if (data.event === "call_ended") {
+                        console.log("📡 Call ended via WebSocket:", data.status, "call_sid:", data.call_sid);
+                        get().endCall();
+                    }
                 } catch (e) {
                     console.error("WebSocket message parsing error", e);
                 }
             };
             ws.onerror = (error) => console.error("WebSocket error:", error);
-            ws.onclose = () => console.log("WebSocket closed");
+            ws.onclose = () => {
+                console.log("WebSocket closed");
+                if ((ws as any)._pingInterval) clearInterval((ws as any)._pingInterval);
+            };
 
             // 3. Backend has already called twilio.calls.create(to=destination)
             //    When destination answers, TwiML bridges to our Device.
             //    Mark as pendingOutbound so incoming handler auto-accepts.
             set({ pendingOutbound: true, callStatus: 'connecting' });
             console.log("⏳ Backend calling destination, waiting for bridge to agent Device...");
+
+            // 4. Poll call status as FALLBACK for pre-bridge termination detection
+            //    If WebSocket drops or misses the call_ended event, this catches it.
+            //    Polls GET /calls/{callId} every 5s while pendingOutbound.
+            const statusPollInterval = setInterval(async () => {
+                const { pendingOutbound: stillPending, callId: currentCallId, callStatus: currentStatus } = get();
+                // Stop polling once call is bridged, ended, or idle
+                if (!stillPending || !currentCallId || currentStatus === 'in-progress' || currentStatus === 'idle' || currentStatus === 'ending') {
+                    clearInterval(statusPollInterval);
+                    return;
+                }
+                try {
+                    const pollToken = localStorage.getItem("token");
+                    if (!pollToken) return;
+                    const res = await APIUSERDIAL.get(`/${currentCallId}`, {
+                        headers: { Authorization: `Bearer ${pollToken}` },
+                    });
+                    const status = res.data?.status;
+                    const terminalStatuses = ['completed', 'failed', 'busy', 'no-answer', 'canceled', 'no_answer'];
+                    if (terminalStatuses.includes(status)) {
+                        console.log(`📡 Poll detected call ended: status=${status}`);
+                        clearInterval(statusPollInterval);
+                        get().endCall();
+                    }
+                } catch (e: any) {
+                    // Don't treat errors as "call ended" — just log and try again next interval
+                    console.warn("📡 Poll status check failed:", e?.response?.status || e?.message);
+                }
+            }, 5000);
+
+            // Store references for cleanup
+            (ws as any)._statusPollInterval = statusPollInterval;
 
             // Timeout: destination needs to answer before Twilio bridges
             setTimeout(() => {
@@ -573,14 +692,25 @@ export const useCallStore = create<CallState>((set, get) => ({
                 (incomingCall as any)._ws = ws;
             }
 
-            incomingCall.on("disconnect", () => {
+            incomingCall.on("disconnect", async () => {
+                // Guard: if we're on hold, ignore conference state change
+                if (get().isOnHold) {
+                    console.log("⚠️ Inbound disconnect during hold — ignoring");
+                    return;
+                }
                 // Customer hung up — report disconnect reason
+                // MUST complete before endCall() to avoid race condition
                 const token = localStorage.getItem("token");
                 const currentCallSid = get().callSid || callSid;
                 if (currentCallSid && token) {
-                    APIUSERDIAL.post(`/${currentCallSid}/disconnect-reason`, { reason: 'customer' }, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    }).catch(() => { });
+                    try {
+                        await APIUSERDIAL.post(`/${currentCallSid}/disconnect-reason`, { reason: 'customer' }, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        });
+                        console.log("✅ Disconnect reason (customer) saved before endCall");
+                    } catch (e) {
+                        console.warn("Failed to save disconnect reason:", e);
+                    }
                 }
                 get().endCall();
             });
@@ -594,10 +724,24 @@ export const useCallStore = create<CallState>((set, get) => ({
     },
 
     rejectIncomingCall: () => {
-        const { incomingCall } = get();
+        const { incomingCall, callSid } = get();
         if (incomingCall) {
-            // Just reject the call — Twilio's <Dial action> URL will
-            // automatically redirect the caller to voicemail
+            // Tell backend to redirect the CUSTOMER's call to voicemail
+            // and end the conference so all legs disconnect cleanly
+            const token = localStorage.getItem("token");
+            if (callSid && token) {
+                import('axios').then(({ default: axios }) => {
+                    axios.post('https://api.vocalabstech.com/twilio/send-to-voicemail',
+                        { call_sid: callSid },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    ).then(() => {
+                        console.log("✅ Customer redirected to voicemail");
+                    }).catch((e) => {
+                        console.warn("Failed to send to voicemail:", e);
+                    });
+                });
+            }
+            // Reject the agent's incoming call leg locally
             incomingCall.reject();
             set({ incomingCall: null, showVoicemailToast: true });
         }
@@ -615,35 +759,70 @@ export const useCallStore = create<CallState>((set, get) => ({
         const { connection, callStatus, callSid } = get();
 
         // Guard against double-trigger (disconnect event + user click)
-        if (callStatus === 'idle' || callStatus === 'ended') return;
-
-        // Terminate the Twilio call for BOTH parties via backend API
-        const token = localStorage.getItem("token");
-        if (callSid && token) {
-            APIUSERDIAL.post(`/${callSid}/end`, {}, {
-                headers: { Authorization: `Bearer ${token}` },
-            }).catch((e) => {
-                console.warn("Backend end-call failed (call may already be over):", e);
-            });
+        if (callStatus === 'idle' || callStatus === 'ended' || callStatus === 'ending') {
+            console.log(`⚠️ endCall skipped — already ${callStatus}`);
+            return;
         }
 
+        console.log(`🔴 endCall called — callSid=${callSid}, callStatus=${callStatus}`);
+
+        // Mark as ending immediately to prevent re-entry
+        set({ callStatus: 'ending' });
+
+        // Terminate the Twilio call for BOTH parties via backend API
+        // This is the critical step — it tells Twilio to end the parent call
+        // which automatically ends all child legs (including the <Dial> to customer)
+        const token = localStorage.getItem("token");
+        if (callSid && token) {
+            console.log(`📡 Sending POST /${callSid}/end to terminate both parties...`);
+            APIUSERDIAL.post(`/${callSid}/end`, {}, {
+                headers: { Authorization: `Bearer ${token}` },
+            }).then(() => {
+                console.log(`✅ Backend confirmed call ${callSid} terminated`);
+            }).catch((e) => {
+                console.warn("Backend end-call failed (call may already be over):", e?.response?.status, e?.message);
+            });
+        } else {
+            console.warn(`⚠️ Cannot send end-call to backend: callSid=${callSid}, hasToken=${!!token}`);
+        }
+
+        // Clean up the local Twilio Device connection
         try {
             if (connection) {
-                if ((connection as any)._timer) clearInterval((connection as any)._timer);
-                // Close WebSocket if it exists
-                if ((connection as any)._ws) {
-                    try { (connection as any)._ws.close(); } catch (e) { }
+                // Stop the call duration timer
+                if ((connection as any)._timer) {
+                    clearInterval((connection as any)._timer);
+                    (connection as any)._timer = null;
                 }
+                // Close the WebSocket for live transcription
+                if ((connection as any)._ws) {
+                    const wsRef = (connection as any)._ws;
+                    // Clean up status polling interval
+                    if (wsRef._statusPollInterval) {
+                        clearInterval(wsRef._statusPollInterval);
+                        wsRef._statusPollInterval = null;
+                    }
+                    // Clean up ping interval
+                    if (wsRef._pingInterval) {
+                        clearInterval(wsRef._pingInterval);
+                        wsRef._pingInterval = null;
+                    }
+                    try { wsRef.close(); } catch (e) { }
+                    (connection as any)._ws = null;
+                }
+                // Disconnect the local Twilio call leg
                 try {
                     connection.disconnect();
+                    console.log("✅ Local connection disconnected");
                 } catch (e) {
-                    console.warn("Error disconnecting call:", e);
+                    console.warn("Error disconnecting local call:", e);
                 }
             }
         } catch (e) {
             console.warn("Error in endCall cleanup:", e);
         }
 
+        // Reset all call-related state
         set({
             connection: null,
             incomingCall: null,
@@ -656,6 +835,7 @@ export const useCallStore = create<CallState>((set, get) => ({
             isRecordingPaused: false,
             showPostCallDrawer: true,
         });
+        console.log("✅ Call state reset to idle");
     },
 
     toggleMute: () => {
@@ -667,12 +847,70 @@ export const useCallStore = create<CallState>((set, get) => ({
         set({ isMuted: !isMuted });
     },
 
-    toggleHold: () => {
-        set((state) => ({ isOnHold: !state.isOnHold }));
+    toggleHold: async () => {
+        const { isOnHold, callSid } = get();
+        const token = localStorage.getItem("token");
+        if (!callSid || !token) {
+            console.warn("Cannot toggle hold: no active call or token");
+            return;
+        }
+
+        // Conference-based hold: customer hears hold music, agent hears silence.
+        // Uses backend API → Twilio Conference participant hold.
+        //
+        // Old local mute approach (commented out for reference):
+        // connection.mute(!isOnHold);
+        // set({ isOnHold: !isOnHold, isMuted: !isOnHold });
+
+        const endpoint = isOnHold
+            ? `/${callSid}/unhold`
+            : `/${callSid}/hold`;
+
+        try {
+            await APIUSERDIAL.post(endpoint, {}, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!isOnHold) {
+                playHoldOn();
+                console.log("Call put on hold (conference hold)");
+            } else {
+                playHoldOff();
+                console.log("Call resumed from hold (conference unhold)");
+            }
+            set({ isOnHold: !isOnHold });
+        } catch (e: any) {
+            console.error(`Failed to ${isOnHold ? 'unhold' : 'hold'} call:`, e);
+        }
     },
 
-    toggleRecording: () => {
-        set((state) => ({ isRecordingPaused: !state.isRecordingPaused }));
+    toggleRecording: async () => {
+        const { isRecordingPaused, callSid } = get();
+        const token = localStorage.getItem("token");
+        if (!callSid || !token) {
+            console.warn("Cannot toggle recording: no active call or token");
+            return;
+        }
+
+        const endpoint = isRecordingPaused
+            ? `/${callSid}/resume-recording`
+            : `/${callSid}/pause-recording`;
+
+        try {
+            await APIUSERDIAL.post(endpoint, {}, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            set({ isRecordingPaused: !isRecordingPaused });
+
+            // Play audio notification to agent
+            if (!isRecordingPaused) {
+                playRecordingPaused();
+            } else {
+                playRecordingResumed();
+            }
+            console.log(`Recording ${isRecordingPaused ? 'resumed' : 'paused'}`);
+        } catch (e: any) {
+            console.error(`Failed to ${isRecordingPaused ? 'resume' : 'pause'} recording:`, e);
+        }
     },
 
     addTranscriptMessage: (message) => {
