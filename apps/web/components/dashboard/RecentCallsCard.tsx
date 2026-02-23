@@ -86,23 +86,23 @@ export default function RecentCallsCard() {
                             <div
                                 key={call.id}
                                 onClick={() => toggleExpand(call.id)}
-                                className="flex flex-col rounded-2xl border border-[#1111110d] backdrop-blur-[42px] transition-colors hover:bg-[#f0f0f0] cursor-pointer overflow-hidden"
+                                className="flex flex-col shrink-0 rounded-2xl border border-[#1111110d] backdrop-blur-[42px] transition-colors hover:bg-[#f0f0f0] cursor-pointer overflow-hidden"
                                 style={{
                                     background: "linear-gradient(96deg, rgba(17, 17, 17, 0.05) -4.09%, rgba(17, 17, 17, 0.02) 105.58%)",
                                 }}
                             >
                                 {/* Compact Row */}
-                                <div className="flex items-center justify-between gap-2 p-3">
-                                    <div className="min-w-[120px] max-w-[140px] truncate">
+                                <div className="flex items-center justify-between gap-2 p-3 overflow-hidden">
+                                    <div className="flex-1 min-w-0 truncate">
                                         <p className="font-semibold text-[#111] truncate" title={displayNum}>{displayNum}</p>
                                     </div>
 
-                                    <div className="flex flex-col min-w-[100px]">
+                                    <div className="flex flex-col shrink-0 text-right sm:text-left sm:shrink">
                                         <p className="text-xs font-medium text-[#111]">{formatDate(call.started_at)}</p>
                                         <p className="text-[10px] text-muted-foreground">{formatDuration(call.duration)}</p>
                                     </div>
 
-                                    <div className="flex flex-col min-w-[70px] hidden sm:flex">
+                                    <div className="flex flex-col shrink-0 hidden md:flex">
                                         <p className="text-xs font-medium text-[#111] truncate">
                                             <span className={cn(
                                                 "w-2 h-2 rounded-full inline-block mr-1",
