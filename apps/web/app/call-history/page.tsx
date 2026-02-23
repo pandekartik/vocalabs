@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { TableCard, TableColumn } from "@/components/TableCard/TableCard";
 import { Download, PlayCircle, MessageSquare, Tag } from "lucide-react";
 import { cn } from "@repo/ui/lib/utils";
-import { CALL_HISTORY_MOCK_DATA } from "./mock-data";
+
 import { MobileCallCard } from "./components/MobileCallCard";
 import { CallDetailModal } from "./components/CallDetailModal";
 import { CallDirection, CallOutcome, RecordingStatus, CallRecord } from "./types";
@@ -39,12 +39,11 @@ export default function CallHistoryPage() {
                     setData(result);
                 } else {
                     console.error("Failed to fetch calls", response.statusText);
-                    // Fallback to mock data for demonstration if API fails
-                    setData(CALL_HISTORY_MOCK_DATA);
+                    setData([]);
                 }
             } catch (error) {
                 console.error("Error fetching calls:", error);
-                setData(CALL_HISTORY_MOCK_DATA);
+                setData([]);
             } finally {
                 setIsLoading(false);
             }
