@@ -103,7 +103,7 @@ export default function CallHistoryScreen() {
         <div className="flex flex-col gap-6">
             <TableCard
                 title="Call History"
-                breadcrumbs={[{ label: "Org Admin" }, { label: "Calls Overview", href: "/admin/org/calls" }, { label: "Call History" }]}
+                breadcrumbs={[{ label: "Org Admin", href: "/admin/org" }, { label: "Calls Overview", href: "/admin/org/calls" }, { label: "Call History" }]}
                 columns={cols}
                 data={loading ? [] : filteredCalls.slice((currentPage - 1) * 10, currentPage * 10)}
                 searchPlaceholder="Search by ID, Agent, Phone..."

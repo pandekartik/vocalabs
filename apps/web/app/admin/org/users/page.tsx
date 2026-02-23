@@ -6,11 +6,11 @@ import { VLModal } from "@/components/ui/VLModal";
 
 interface Agent {
     id: string;
-    agent_name: string;
-    agent_id: string;
-    calling_type: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    role?: string;
     is_active: boolean;
-    phone_number?: string | null;
     created_at: string;
 }
 
@@ -49,44 +49,31 @@ export default function UserManagementScreen() {
     const fetchAgents = async () => {
         setIsLoading(true);
         try {
+            const userStr = localStorage.getItem("user");
             const token = localStorage.getItem("token") || "";
-            const response = await fetch("https://api.vocalabstech.com/agents", {
-                headers: {
-                    accept: "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            if (userStr && token) {
+                const userData = JSON.parse(userStr);
+                if (userData.organization_id) {
+                    const res = await fetch(`https://api.vocalabstech.com/admin/organizations/${userData.organization_id}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setOrgName(data.name || "");
+                        const users = data.users || [];
+                        const agentUsers = users.filter((u: any) => u.role?.toLowerCase() === 'agent');
+                        setAgents(agentUsers);
+                    }
                 }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setAgents(Array.isArray(data) ? data : []);
             }
         } catch (err) {
-            console.error("Fetch agents error", err);
+            console.error("Fetch org data error", err);
         } finally {
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        const fetchOrg = async () => {
-            const userStr = localStorage.getItem("user");
-            const token = localStorage.getItem("token");
-            if (userStr && token) {
-                try {
-                    const userData = JSON.parse(userStr);
-                    if (userData.organization_id) {
-                        const res = await fetch(`https://api.vocalabstech.com/admin/organizations/${userData.organization_id}`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            setOrgName(data.name || "");
-                        }
-                    }
-                } catch (e) { }
-            }
-        };
-        fetchOrg();
         fetchAgents();
     }, []);
 
@@ -195,25 +182,25 @@ export default function UserManagementScreen() {
             key: "name", label: "Agent", sortable: true, width: "w-[220px]", render: (u) => (
                 <div className="flex items-center gap-2">
                     <div className="h-9 w-9 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center text-xs font-medium text-[#0C335C]">
-                        {u.agent_name ? u.agent_name.split(" ").map(p => p[0]).join("").substring(0, 2).toUpperCase() : "?"}
+                        {u.first_name ? u.first_name.charAt(0).toUpperCase() : (u.email ? u.email.charAt(0).toUpperCase() : "?")}
+                        {u.last_name ? u.last_name.charAt(0).toUpperCase() : ""}
                     </div>
                     <div>
-                        <p className="font-medium text-[#0C335C] text-sm">{u.agent_name}</p>
-                        <p className="text-xs text-gray-400">{u.agent_id}</p>
+                        <p className="font-medium text-[#0C335C] text-sm">{u.first_name} {u.last_name}</p>
+                        <p className="text-xs text-gray-400">{u.email}</p>
                     </div>
                 </div>
             )
         },
-        { key: "role", label: "Calling Type", sortable: true, width: "w-[120px]", render: (u) => <span className="text-sm text-gray-600 capitalize">{u.calling_type}</span> },
-        { key: "phone", label: "Phone", width: "w-[150px]", render: (u) => <span className="text-sm text-gray-600">{u.phone_number || "N/A"}</span> },
+        { key: "role", label: "Role", sortable: true, width: "w-[120px]", render: (u) => <span className="text-sm text-gray-600 capitalize">{u.role}</span> },
         { key: "status", label: "Status", sortable: true, width: "w-[100px]", render: (u) => <Badge text={u.is_active ? "Active" : "Inactive"} color={u.is_active ? "green" : "gray"} /> },
         { key: "created", label: "Created", width: "w-[110px]", render: (u) => <span className="text-xs text-gray-500">{new Date(u.created_at).toLocaleDateString()}</span> }
     ];
 
     const filtered = agents.filter(u => {
         const s = search.toLowerCase();
-        return (!search || (u.agent_name || "").toLowerCase().includes(s) || (u.agent_id || "").toLowerCase().includes(s)) &&
-            (roleFilter === "all" || (u.calling_type || "").toLowerCase() === roleFilter) &&
+        const fullName = `${u.first_name || ""} ${u.last_name || ""}`.toLowerCase();
+        return (!search || fullName.includes(s) || (u.email || "").toLowerCase().includes(s)) &&
             (statusFilter === "all" || (u.is_active ? "active" : "inactive") === statusFilter);
     });
 
@@ -221,21 +208,18 @@ export default function UserManagementScreen() {
         <>
             <TableCard
                 title="Agents"
-                breadcrumbs={[{ label: "Org Admin" }, { label: "Users" }]}
+                breadcrumbs={[{ label: "Org Admin", href: "/admin/org" }, { label: "Users" }]}
                 primaryAction={<button onClick={handleOpenCreateModal} className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#FE641F] shadow-[0_4px_14px_0_rgba(254,100,31,0.30)] text-white font-bold text-sm hover:bg-[#e55a1b]"><Plus size={16} /> Add Agent</button>}
                 secondaryAction={<button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] border border-gray-200 bg-white text-[#0C335C] font-medium text-sm hover:bg-gray-50"><Download size={16} /> Bulk Import</button>}
-                searchPlaceholder="Search by name or agent ID..."
+                searchPlaceholder="Search by name or email..."
                 searchValue={search}
                 onSearchChange={setSearch}
-                onClearFilters={search || roleFilter !== "all" || statusFilter !== "all" ? () => { setSearch(""); setRoleFilter("all"); setStatusFilter("all"); } : undefined}
+                onClearFilters={search || statusFilter !== "all" ? () => { setSearch(""); setStatusFilter("all"); } : undefined}
                 filters={[
-                    { key: "role", label: "Calling Type", value: roleFilter, onChange: setRoleFilter, options: [{ label: "Inbound", value: "inbound" }, { label: "Outbound", value: "outbound" }] },
                     { key: "status", label: "Status", value: statusFilter, onChange: setStatusFilter, options: [{ label: "Active", value: "active" }, { label: "Inactive", value: "inactive" }] },
                 ]}
                 stats={[
                     { label: "Total Agents", value: agents.length.toString(), valueColorClass: "text-[#0C335C]" },
-                    { label: "Inbound", value: agents.filter(u => u.calling_type === "inbound").length.toString(), valueColorClass: "text-blue-600" },
-                    { label: "Outbound", value: agents.filter(u => u.calling_type === "outbound").length.toString(), valueColorClass: "text-purple-600" },
                     { label: "Active", value: agents.filter(u => u.is_active).length.toString(), valueColorClass: "text-green-600" },
                 ]}
                 columns={columns}

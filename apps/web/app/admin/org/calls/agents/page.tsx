@@ -106,7 +106,7 @@ export default function AgentsMetricsScreen() {
         <div className="flex flex-col gap-6">
             <TableCard
                 title="Agent Metrics"
-                breadcrumbs={[{ label: "Org Admin" }, { label: "Calls Overview", href: "/admin/org/calls" }, { label: "Agent Metrics" }]}
+                breadcrumbs={[{ label: "Org Admin", href: "/admin/org" }, { label: "Calls Overview", href: "/admin/org/calls" }, { label: "Agent Metrics" }]}
                 columns={cols}
                 data={loading ? [] : filteredAgents.slice((currentPage - 1) * 10, currentPage * 10)}
                 searchPlaceholder="Search agents by name..."

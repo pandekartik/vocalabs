@@ -45,10 +45,14 @@ export default function OrgDashboard() {
                     return `${m}m ${s}s`;
                 };
 
+                const users = orgData.users || [];
+                const supervisorsCount = users.filter((u: any) => u.role?.toLowerCase() === 'supervisor').length;
+                const agentsCount = users.filter((u: any) => u.role?.toLowerCase() === 'agent').length;
+
                 setStats([
-                    { label: "Total Users", value: (orgData.users?.length || 0).toString(), change: "", action: "Manage", color: "text-[#0C335C]" },
-                    { label: "Supervisors", value: (orgData.supervisors?.length || 0).toString(), change: "", action: "View", color: "text-blue-600" },
-                    { label: "Agents", value: (orgData.agents?.length || 0).toString(), change: "", action: "View", color: "text-gray-700" },
+                    { label: "Total Users", value: users.length.toString(), change: "", action: "Manage", color: "text-[#0C335C]" },
+                    { label: "Supervisors", value: supervisorsCount.toString(), change: "", action: "View", color: "text-blue-600" },
+                    { label: "Agents", value: agentsCount.toString(), change: "", action: "View", color: "text-gray-700" },
                     { label: "Active Calls", value: Array.isArray(liveData) ? liveData.length.toString() : "0", change: "Live now", action: "Monitor", color: "text-[#FE641F]" },
                     { label: "Today's Calls", value: (callsStats.today_calls || 0).toString(), change: "", action: "View details", color: "text-[#0C335C]" },
                     { label: "Avg Handle Time", value: formatDuration(callsStats.avg_duration || 0), change: "", action: "Analyze", color: "text-green-600" },

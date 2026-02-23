@@ -46,7 +46,7 @@ export default function SupervisorsScreen() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const orgUsers = res.data.users || [];
-            const sups = orgUsers.filter((u: any) => u.role === "SUPERVISOR");
+            const sups = orgUsers.filter((u: any) => u.role?.toLowerCase() === "supervisor");
             setSupervisors(sups);
         } catch (err) {
             console.error("Failed to fetch supervisors:", err);
@@ -121,7 +121,7 @@ export default function SupervisorsScreen() {
         <>
             <TableCard
                 title="Supervisors"
-                breadcrumbs={[{ label: "Org Admin" }, { label: "Supervisors" }]}
+                breadcrumbs={[{ label: "Org Admin", href: "/admin/org" }, { label: "Supervisors" }]}
                 primaryAction={<button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#FE641F] shadow-[0_4px_14px_0_rgba(254,100,31,0.30)] text-white font-bold text-sm hover:bg-[#e55a1b]"><Plus size={16} /> Add Supervisor</button>}
                 searchPlaceholder="Search supervisors..."
                 searchValue={search}

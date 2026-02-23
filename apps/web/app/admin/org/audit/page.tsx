@@ -45,7 +45,7 @@ export default function AuditLogScreen() {
     return (
         <TableCard
             title="Audit Log"
-            breadcrumbs={[{ label: "Org Admin" }, { label: "Audit Log" }]}
+            breadcrumbs={[{ label: "Org Admin", href: "/admin/org" }, { label: "Audit Log" }]}
             searchPlaceholder="Search by user, action, or resource..."
             secondaryAction={<button className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] border border-gray-200 bg-white text-[#0C335C] font-medium text-sm hover:bg-gray-50"><Download size={16} /> Export</button>}
             filters={[
