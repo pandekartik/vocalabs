@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { TableCard, TableColumn } from "@/components/TableCard/TableCard";
 import { Download, PlayCircle, MessageSquare, Tag } from "lucide-react";
+import { cn } from "@repo/ui/lib/utils";
 import { CALL_HISTORY_MOCK_DATA } from "./mock-data";
 import { MobileCallCard } from "./components/MobileCallCard";
 import { CallDetailModal } from "./components/CallDetailModal";
@@ -162,6 +163,25 @@ export default function CallHistoryPage() {
                     ) : <span className="font-sans text-xs text-gray-400">—</span>}
                 </div>
             )
+        },
+        {
+            key: "disconnect_reason",
+            label: "Disconnected By",
+            width: "w-[120px]",
+            render: (call) => {
+                const reason = call.disconnect_reason;
+                if (!reason) return <span className="font-sans text-xs text-gray-400">—</span>;
+                const label = reason.charAt(0).toUpperCase() + reason.slice(1);
+                const colorClass = reason === "agent" ? "bg-blue-50 text-blue-700" :
+                    reason === "customer" ? "bg-orange-50 text-orange-700" :
+                        reason === "system" ? "bg-gray-100 text-gray-700" :
+                            "bg-gray-50 text-gray-600";
+                return (
+                    <span className={cn("font-sans text-[11px] font-medium px-2 py-1 rounded-md", colorClass)}>
+                        {label}
+                    </span>
+                );
+            }
         },
         {
             key: "actions",

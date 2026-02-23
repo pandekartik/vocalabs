@@ -51,14 +51,30 @@ export function CreateReminderModal({ isOpen, onClose, edit }: CreateReminderMod
 
     const isValid = contact.trim() && subject.trim() && dueDate;
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!isValid) return;
         setIsSubmitting(true);
-        setTimeout(() => {
-            setIsSubmitting(false);
+        try {
+            const token = localStorage.getItem("token");
+            const { INTELICONVOAPI } = await import("@/lib/axios");
+            // Combine date + time into ISO datetime
+            const dueAt = new Date(`${dueDate}T${dueTime}:00`).toISOString();
+            await INTELICONVOAPI.post("/reminders", {
+                title: subject,
+                description: notes || undefined,
+                contact_name: contact,
+                due_at: dueAt,
+                priority: priority.toLowerCase(),
+            }, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
             setSuccess(true);
             setTimeout(() => { setSuccess(false); onClose(); }, 1500);
-        }, 700);
+        } catch (e: any) {
+            console.error("Failed to create reminder:", e);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
