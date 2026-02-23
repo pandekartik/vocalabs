@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { TableCard, TableColumn } from "@/components/TableCard/TableCard";
 import { Card } from "@/components/ui/card";
-import { Download, Phone, Loader2, Search } from "lucide-react";
+import { PlayCircle, Download, FileText, XCircle, AlertTriangle, CheckCircle2, Clock, Phone, Loader2, Search } from "lucide-react";
 import axios from "axios";
 import Link from "next/link";
+import { cn } from "@repo/ui/lib/utils";
+import { CallDetailModal } from "@/app/call-history/components/CallDetailModal";
 
 interface CallLog {
     id: string;
@@ -22,12 +24,21 @@ interface CallLog {
     recording_url: string | null;
     recording_gcs_url: string | null;
     created_at: string;
+    disconnect_reason: string | null;
+    agent_notes: string;
+    tags: string;
+    started_at: string;
+    ended_at: string;
+    ai_summary: string;
+    overall_sentiment: string;
+    transcript: string;
 }
 
 export default function CallsOverviewScreen() {
     const [calls, setCalls] = useState<CallLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+    const [activeCall, setActiveCall] = useState<CallLog | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
 
     // Search states
@@ -116,14 +127,78 @@ export default function CallsOverviewScreen() {
         return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls[color]}`}>{text}</span>;
     }
 
-    const cols: TableColumn<CallLog>[] = [
+    const colsRecent: TableColumn<CallLog>[] = [
         { key: "id", label: "Call ID", width: "w-[130px]", render: (c) => <span className="font-mono text-xs text-gray-500">{c.id.substring(0, 8)}...</span> },
         { key: "timestamp", label: "Time", sortable: true, width: "w-[160px]", render: (c) => <span className="text-sm text-gray-600">{new Date(c.created_at).toLocaleString()}</span> },
-        { key: "agent", label: "Agent", sortable: true, width: "w-[130px]", render: (c) => <span className="text-sm font-medium text-[#0C335C]">{c.agent_name || c.agent_id_str || 'Unknown'}</span> },
-        { key: "phone", label: "Phone", width: "w-[140px]", render: (c) => <span className="text-sm font-mono text-gray-600">{c.direction === 'inbound' ? c.from_number : c.to_number}</span> },
+        {
+            key: "agent",
+            label: "Agent",
+            sortable: true,
+            width: "w-[130px]",
+            render: (c) => {
+                const identifier = c.agent_name || c.agent_id_str || 'unknown';
+                return (
+                    <Link href={`/admin/org/calls/agents/${encodeURIComponent(identifier)}`} className="text-sm font-medium text-[#0C335C] hover:underline" onClick={(e) => e.stopPropagation()}>
+                        {identifier === 'unknown' ? 'Unknown' : (c.agent_name || c.agent_id_str)}
+                    </Link>
+                );
+            }
+        },
+        {
+            key: "phone", label: "Phone", width: "w-[140px]", render: (c) => {
+                const num = c.direction === 'inbound' ? c.from_number : c.to_number;
+                return <div className="text-sm font-mono text-gray-600 cursor-pointer hover:underline hover:text-[#FE641F]" onClick={(e) => { e.stopPropagation(); setActiveCall(c); }}>{num}</div>;
+            }
+        },
         { key: "duration", label: "Duration", sortable: true, width: "w-[90px]", render: (c) => <span className="text-sm text-gray-700">{formatDuration(c.duration)}</span> },
         { key: "outcome", label: "Outcome", sortable: true, width: "w-[110px]", render: (c) => <Badge text={c.status} color={c.status === "completed" ? "green" : c.status.match(/missed|failed|busy|no-answer|canceled/i) ? "red" : "gray"} /> },
-        { key: "recording", label: "Recording", width: "w-[120px]", render: (c) => (c.recording_url || c.recording_gcs_url) ? <a href={(c.recording_gcs_url || c.recording_url) as string} target="_blank" rel="noreferrer" className="text-xs font-medium text-blue-600 hover:underline">Available</a> : <span className="text-xs text-gray-400">None</span> },
+        {
+            key: "disconnect_reason",
+            label: "Disconnected By",
+            width: "w-[130px]",
+            render: (c) => {
+                const reason = c.disconnect_reason;
+                if (!reason) return <span className="font-sans text-xs text-gray-400">—</span>;
+                const label = reason.charAt(0).toUpperCase() + reason.slice(1);
+                const colorClass = reason === "agent" ? "bg-blue-50 text-blue-700" :
+                    reason === "customer" ? "bg-orange-50 text-orange-700" :
+                        reason === "system" ? "bg-gray-100 text-gray-700" :
+                            "bg-gray-50 text-gray-600";
+                return (
+                    <span className={cn("font-sans text-[11px] font-medium px-2 py-1 rounded-md", colorClass)}>
+                        {label}
+                    </span>
+                );
+            }
+        },
+        {
+            key: "actions",
+            label: "Recording",
+            width: "w-[110px]",
+            render: (c) => {
+                const hasRecording = !!(c.recording_url || c.recording_gcs_url);
+                const isProcessing = c.status === "completed" && !hasRecording;
+
+                return (
+                    <div className="flex items-center gap-2">
+                        {hasRecording && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setActiveCall(c); }}
+                                className="flex items-center justify-center gap-1 text-[#FE641F] hover:bg-[#FE641F]/10 px-2 py-1 rounded transition-colors text-xs font-medium"
+                            >
+                                <PlayCircle size={16} /> Play
+                            </button>
+                        )}
+                        {isProcessing && (
+                            <span className="text-amber-500 text-xs flex items-center gap-1"><span className="animate-spin text-xs">⏳</span> Proc.</span>
+                        )}
+                        {!hasRecording && !isProcessing && (
+                            <span className="text-gray-400 text-xs">—</span>
+                        )}
+                    </div>
+                );
+            }
+        },
     ];
 
     const handleExportCSV = () => {
@@ -198,19 +273,20 @@ export default function CallsOverviewScreen() {
 
             <TableCard
                 title="Recent Calls"
-                breadcrumbs={[]}
-                columns={cols}
-                data={filteredCalls.slice((currentPage - 1) * 10, currentPage * 10)}
-                searchPlaceholder="Search by ID, Agent, Phone..."
+                columns={colsRecent}
+                data={loading ? [] : filteredCalls.slice(0, 10)}
+                keyExtractor={(c) => c.id}
+                searchPlaceholder="Search Agent, Phone, ID..."
                 searchValue={searchCall}
                 onSearchChange={setSearchCall}
-                keyExtractor={(c) => c.id}
-                selectable
-                selectedKeys={selectedKeys}
-                onSelectionChange={setSelectedKeys}
-                primaryAction={<Link href="/admin/org/calls/history" className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] bg-[#FE641F] shadow-[0_4px_14px_0_rgba(254,100,31,0.30)] text-white font-bold text-sm hover:bg-[#e55a1b]">View All History</Link>}
-                secondaryAction={<button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] border border-gray-200 bg-white text-[#0C335C] font-medium text-sm hover:bg-gray-50"><Download size={16} /> Export</button>}
-                pagination={{ currentPage, itemsPerPage: 10, totalItems: filteredCalls.length, totalPages: Math.ceil(filteredCalls.length / 10) || 1, onPageChange: setCurrentPage }}
+                onRowClick={(c) => setActiveCall(c)}
+                primaryAction={<Link href="/admin/org/calls/history" className="text-xs text-[#FE641F] font-semibold hover:underline bg-[#FE641F]/10 px-3 py-1.5 rounded-lg flex items-center gap-1">View All History <div className="text-lg leading-none mb-0.5">→</div></Link>}
+            />
+
+            <CallDetailModal
+                isOpen={!!activeCall}
+                call={activeCall as any}
+                onClose={() => setActiveCall(null)}
             />
         </div>
     );

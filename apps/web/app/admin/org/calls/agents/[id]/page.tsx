@@ -33,11 +33,11 @@ interface CallLog {
     transcript: string;
 }
 
-export default function CallHistoryScreen() {
+export default function AgentSpecificCallsScreen({ params }: { params: { id: string } }) {
+    const rawId = decodeURIComponent(params.id);
     const [calls, setCalls] = useState<CallLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchCall, setSearchCall] = useState("");
-    const [search, setSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
     const [activeCall, setActiveCall] = useState<CallLog | null>(null);
@@ -51,7 +51,14 @@ export default function CallHistoryScreen() {
                     headers: { Authorization: `Bearer ${token}` },
                     params: { limit: 1000 }
                 });
-                setCalls(response.data);
+
+                // Filter down to just this specific agent based on the URL parameter string matching
+                const filtered = response.data.filter((c: CallLog) => {
+                    const agentLabel = c.agent_name || c.agent_id_str || 'unknown';
+                    return agentLabel === rawId;
+                });
+
+                setCalls(filtered);
             } catch (error) {
                 console.error("Failed to fetch calls for org", error);
             } finally {
@@ -59,7 +66,7 @@ export default function CallHistoryScreen() {
             }
         };
         fetchCalls();
-    }, []);
+    }, [rawId]);
 
     const formatDuration = (seconds: number | null) => {
         if (!seconds) return "0s";
@@ -69,33 +76,9 @@ export default function CallHistoryScreen() {
         return `${m}m ${s}s`;
     };
 
-    function Badge({ text, color }: { text: string; color: "green" | "blue" | "red" | "gray" | "amber" | "purple" | "orange" }) {
-        const cls: Record<string, string> = {
-            green: "bg-green-100 text-green-800", blue: "bg-blue-100 text-blue-800",
-            red: "bg-red-100 text-red-800", gray: "bg-gray-100 text-gray-700",
-            amber: "bg-amber-100 text-amber-800", purple: "bg-purple-100 text-purple-800",
-            orange: "bg-orange-100 text-orange-800",
-        };
-        return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls[color]}`}>{text}</span>;
-    }
-
     const cols: TableColumn<CallLog>[] = [
         { key: "id", label: "Call ID", width: "w-[130px]", render: (c) => <span className="font-mono text-xs text-gray-500">{c.id.substring(0, 8)}...</span> },
         { key: "timestamp", label: "Time", sortable: true, width: "w-[160px]", render: (c) => <span className="text-sm text-gray-600">{new Date(c.created_at).toLocaleString()}</span> },
-        {
-            key: "agent",
-            label: "Agent",
-            sortable: true,
-            width: "w-[130px]",
-            render: (c) => {
-                const identifier = c.agent_name || c.agent_id_str || 'unknown';
-                return (
-                    <Link href={`/admin/org/calls/agents/${encodeURIComponent(identifier)}`} className="text-sm font-medium text-[#0C335C] hover:underline" onClick={(e) => e.stopPropagation()}>
-                        {identifier === 'unknown' ? 'Unknown' : (c.agent_name || c.agent_id_str)}
-                    </Link>
-                );
-            }
-        },
         {
             key: "phone", label: "Phone", width: "w-[140px]", render: (c) => {
                 const num = c.direction === 'inbound' ? c.from_number : c.to_number;
@@ -156,10 +139,9 @@ export default function CallHistoryScreen() {
     const searchCallLower = searchCall.toLowerCase();
     const filteredCalls = calls.filter(c => {
         if (!searchCall) return true;
-        const agentName = (c.agent_name || c.agent_id_str || "unknown").toLowerCase();
         const cid = (c.id || "").toLowerCase();
         const phone = (c.from_number || c.to_number || "").toLowerCase();
-        return agentName.includes(searchCallLower) || cid.includes(searchCallLower) || phone.includes(searchCallLower);
+        return cid.includes(searchCallLower) || phone.includes(searchCallLower);
     });
 
     const handleExportCSV = () => {
@@ -170,7 +152,7 @@ export default function CallHistoryScreen() {
         const encoded = encodeURI("data:text/csv;charset=utf-8," + csv);
         const link = document.createElement("a");
         link.setAttribute("href", encoded);
-        link.setAttribute("download", "org_calls_history_export.csv");
+        link.setAttribute("download", `org_calls_agent_${rawId}_export.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -179,11 +161,16 @@ export default function CallHistoryScreen() {
     return (
         <div className="flex flex-col gap-6">
             <TableCard
-                title="Call History"
-                breadcrumbs={[{ label: "Org Admin", href: "/admin/org" }, { label: "Calls Overview", href: "/admin/org/calls" }, { label: "Call History" }]}
+                title={`Calls by ${rawId === 'unknown' ? 'Unknown' : rawId}`}
+                breadcrumbs={[
+                    { label: "Org Admin", href: "/admin/org" },
+                    { label: "Calls Overview", href: "/admin/org/calls" },
+                    { label: "Agent Metrics", href: "/admin/org/calls/agents" },
+                    { label: rawId }
+                ]}
                 columns={cols}
                 data={loading ? [] : filteredCalls.slice((currentPage - 1) * 10, currentPage * 10)}
-                searchPlaceholder="Search by ID, Agent, Phone..."
+                searchPlaceholder="Search by ID or Phone..."
                 searchValue={searchCall}
                 onSearchChange={setSearchCall}
                 keyExtractor={(c) => c.id}
