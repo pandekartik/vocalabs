@@ -258,8 +258,12 @@ export default function CallsOverviewScreen() {
                             <tbody>
                                 {byAgent.length === 0 ? <tr><td colSpan={5} className="py-6 text-center text-gray-500">No agents match your search.</td></tr> : null}
                                 {byAgent.map(a => (
-                                    <tr key={a.agent} className="border-b border-gray-50 last:border-none">
-                                        <td className="py-2.5 pr-6 font-medium text-[#0C335C] truncate max-w-[150px]">{a.agent}</td>
+                                    <tr key={a.agent} className="border-b border-gray-50 last:border-none hover:bg-gray-50/50 transition-colors">
+                                        <td className="py-2.5 pr-6 font-medium text-[#0C335C] truncate max-w-[150px]">
+                                            <Link href={`/admin/org/calls/agents/${encodeURIComponent(a.agent)}`} className="hover:underline hover:text-[#FE641F] block w-full">
+                                                {a.agent}
+                                            </Link>
+                                        </td>
                                         <td className="py-2.5 pr-6">{a.calls}</td>
                                         <td className="py-2.5 pr-6 font-mono">{a.duration}</td>
                                         <td className="py-2.5 pr-6 font-mono">{a.avg}</td>
