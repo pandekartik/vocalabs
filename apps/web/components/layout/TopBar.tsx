@@ -54,7 +54,7 @@ export function TopBar() {
                         initials,
                         organization_id: userData.organization_id,
                         user_id: userData.user_id,
-                        orgName
+                        orgName: orgName || prev?.orgName
                     }));
                 };
 
@@ -63,17 +63,25 @@ export function TopBar() {
 
                 const headers = { Authorization: `Bearer ${token}` };
 
-                // Fetch real name for ORG_ADMIN since auth returns no name
-                if (roleUpper === "ORG_ADMIN" && userData.organization_id && token) {
+                // Fetch Organization data for ALL users to populate orgName
+                if (userData.organization_id && token) {
                     axios.get(`https://api.vocalabstech.com/admin/organizations/${userData.organization_id}`, { headers })
                         .then(res => {
-                            const orgUsers = res.data.users || [];
-                            const me = orgUsers.find((u: any) => u.id === userData.user_id || u.email === userData.email) || orgUsers[0];
                             const orgName = res.data.name;
-                            if (me && me.first_name) {
-                                setUserStateAndInitials(me.first_name, me.last_name || "", orgName);
+                            if (roleUpper === "ORG_ADMIN") {
+                                const orgUsers = res.data.users || [];
+                                const me = orgUsers.find((u: any) => u.id === userData.user_id || u.email === userData.email) || orgUsers[0];
+                                if (me && me.first_name) {
+                                    setUserStateAndInitials(me.first_name, me.last_name || "", orgName);
+                                } else {
+                                    // Fallback if me isn't found, just set the orgName
+                                    setUserStateAndInitials(firstName, lastName, orgName);
+                                }
+                            } else {
+                                // For Non-Org-Admins, just set the orgName globally
+                                setUserStateAndInitials(firstName, lastName, orgName);
                             }
-                        }).catch(err => console.error("Failed fetching org admin user details for topbar", err));
+                        }).catch(err => console.error("Failed fetching org details for topbar", err));
                 }
 
                 if (["AGENT", "SUPERVISOR", "MANAGER"].includes(roleUpper) && token) {
@@ -82,11 +90,19 @@ export function TopBar() {
                         axios.get(`https://api.vocalabstech.com/agents`, { headers }).catch(() => null),
                         axios.get(`https://api.vocalabstech.com/calls/my-calls/stats`, { headers }).catch(() => null)
                     ]).then(([agentsRes, statsRes]) => {
+                        let parsedFirstName = firstName;
+                        let parsedLastName = lastName;
+
                         if (agentsRes && agentsRes.data && Array.isArray(agentsRes.data)) {
-                            // Find the current logged in agent's representation to extract the specific phone_number field
+                            // Find the current logged in agent's representation to extract the specific phone_number & exact name
                             const me = agentsRes.data.find((a: any) => a.user_id === userData.user_id || a.email === userData.email);
-                            if (me && me.phone_number) {
-                                setUserStateAndInitials(firstName, lastName, undefined, me.phone_number);
+                            if (me) {
+                                if (me.agent_name) {
+                                    const nameParts = me.agent_name.split(' ');
+                                    parsedFirstName = nameParts[0];
+                                    parsedLastName = nameParts.slice(1).join(' ');
+                                }
+                                setUserStateAndInitials(parsedFirstName, parsedLastName, undefined, me.phone_number);
                             }
                         }
 
