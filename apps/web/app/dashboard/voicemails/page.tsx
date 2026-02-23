@@ -1,19 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { TableCard, TableColumn } from "@/components/TableCard/TableCard";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Download, Play, CheckCircle, Clock } from "lucide-react";
+import { Download, Play, Pause, CheckCircle, Clock, Volume2, X } from "lucide-react";
 
 // ── API Schema ─────────────────────────────────────────
 interface Voicemail {
     id: string;
     call_id: string;
     recording_url: string;
+    recording_gcs_url: string | null;
     duration: number;
     transcript: string;
     from_number: string;
-    status: string; // "pending" | "listened" | etc.
+    status: string;
     created_at: string;
 }
 
@@ -37,6 +38,92 @@ function StatusPill({ status }: { status: string }) {
     );
 }
 
+// ── Inline Audio Player Component ──────────────────────
+function InlinePlayer({ src, onClose }: { src: string; onClose: () => void }) {
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+
+    useEffect(() => {
+        // Auto-play on mount
+        if (audioRef.current) {
+            audioRef.current.play().then(() => setIsPlaying(true)).catch(() => { });
+        }
+    }, []);
+
+    const togglePlay = () => {
+        if (!audioRef.current) return;
+        if (isPlaying) {
+            audioRef.current.pause();
+        } else {
+            audioRef.current.play();
+        }
+        setIsPlaying(!isPlaying);
+    };
+
+    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const time = parseFloat(e.target.value);
+        if (audioRef.current) {
+            audioRef.current.currentTime = time;
+            setCurrentTime(time);
+        }
+    };
+
+    const formatTime = (sec: number) => {
+        if (!sec || isNaN(sec)) return "0:00";
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m}:${s.toString().padStart(2, "0")}`;
+    };
+
+    return (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-black/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-6 py-3 flex items-center gap-4">
+            <button
+                onClick={togglePlay}
+                className="h-10 w-10 shrink-0 bg-[#FE641F] text-white rounded-full flex items-center justify-center hover:bg-[#e55a1b] transition-colors shadow-md"
+            >
+                {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+            </button>
+            <div className="flex-1 flex flex-col gap-1">
+                <input
+                    type="range"
+                    min={0}
+                    max={duration || 0}
+                    step={0.1}
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{
+                        background: `linear-gradient(to right, #FE641F ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%)`
+                    }}
+                />
+                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                </div>
+            </div>
+            <Volume2 size={16} className="text-gray-400 shrink-0" />
+            {src && (
+                <a href={src} download className="text-gray-400 hover:text-[#FE641F] transition-colors shrink-0" title="Download">
+                    <Download size={16} />
+                </a>
+            )}
+            <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors shrink-0" title="Close">
+                <X size={16} />
+            </button>
+            <audio
+                ref={audioRef}
+                src={src}
+                onTimeUpdate={() => audioRef.current && setCurrentTime(audioRef.current.currentTime)}
+                onLoadedMetadata={() => audioRef.current && setDuration(audioRef.current.duration)}
+                onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
+                preload="metadata"
+            />
+        </div>
+    );
+}
+
 export default function VoicemailQueuePage() {
     const [voicemails, setVoicemails] = useState<Voicemail[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -45,6 +132,7 @@ export default function VoicemailQueuePage() {
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
     const [currentPage, setCurrentPage] = useState(1);
     const [markingId, setMarkingId] = useState<string | null>(null);
+    const [playingUrl, setPlayingUrl] = useState<string | null>(null);
 
     const ITEMS_PER_PAGE = 10;
 
@@ -81,7 +169,7 @@ export default function VoicemailQueuePage() {
             const response = await fetch(
                 `https://api.vocalabstech.com/supervisor/voicemails/${voicemailId}/mark-listened`,
                 {
-                    method: "POST",
+                    method: "PATCH",
                     headers: {
                         accept: "application/json",
                         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -89,14 +177,11 @@ export default function VoicemailQueuePage() {
                 }
             );
             if (response.ok) {
-                // Optimistically update local state
                 setVoicemails((prev) =>
                     prev.map((v) =>
                         v.id === voicemailId ? { ...v, status: "listened" } : v
                     )
                 );
-            } else {
-                console.error("Failed to mark voicemail as listened:", response.statusText);
             }
         } catch (error) {
             console.error("Error marking voicemail:", error);
@@ -114,6 +199,8 @@ export default function VoicemailQueuePage() {
             minute: "2-digit",
         });
     };
+
+    const getRecordingUrl = (vm: Voicemail) => vm.recording_gcs_url || vm.recording_url || null;
 
     const columns: TableColumn<Voicemail>[] = [
         {
@@ -163,36 +250,36 @@ export default function VoicemailQueuePage() {
             label: "Actions",
             width: "w-[110px]",
             fixedRight: true,
-            render: (vm) => (
-                <div className="flex items-center gap-1 justify-center">
-                    {vm.recording_url && (
-                        <a
-                            href={vm.recording_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-2 rounded-xl hover:bg-black/10 text-gray-400 hover:text-[#FE641F] transition-colors"
-                            title="Play Recording"
-                        >
-                            <Play size={15} />
-                        </a>
-                    )}
-                    {vm.status !== "listened" && (
-                        <button
-                            onClick={(e) => { e.stopPropagation(); markListened(vm.id); }}
-                            disabled={markingId === vm.id}
-                            className="p-2 rounded-xl hover:bg-black/10 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
-                            title="Mark as Listened"
-                        >
-                            {markingId === vm.id ? (
-                                <Clock size={15} className="animate-spin" />
-                            ) : (
-                                <CheckCircle size={15} />
-                            )}
-                        </button>
-                    )}
-                </div>
-            ),
+            render: (vm) => {
+                const url = getRecordingUrl(vm);
+                return (
+                    <div className="flex items-center gap-1 justify-center">
+                        {url && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setPlayingUrl(url); }}
+                                className={`p-2 rounded-xl hover:bg-black/10 transition-colors ${playingUrl === url ? "text-[#FE641F] bg-orange-50" : "text-gray-400 hover:text-[#FE641F]"}`}
+                                title="Play Recording"
+                            >
+                                {playingUrl === url ? <Pause size={15} /> : <Play size={15} />}
+                            </button>
+                        )}
+                        {vm.status !== "listened" && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); markListened(vm.id); }}
+                                disabled={markingId === vm.id}
+                                className="p-2 rounded-xl hover:bg-black/10 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                                title="Mark as Listened"
+                            >
+                                {markingId === vm.id ? (
+                                    <Clock size={15} className="animate-spin" />
+                                ) : (
+                                    <CheckCircle size={15} />
+                                )}
+                            </button>
+                        )}
+                    </div>
+                );
+            },
         },
     ];
 
@@ -289,6 +376,14 @@ export default function VoicemailQueuePage() {
                         }}
                     />
                 </div>
+
+                {/* Inline Audio Player */}
+                {playingUrl && (
+                    <InlinePlayer
+                        src={playingUrl}
+                        onClose={() => setPlayingUrl(null)}
+                    />
+                )}
             </div>
         </DashboardLayout>
     );
