@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Link from "next/link";
 import {
     ChevronRight,
     Search,
@@ -190,9 +191,15 @@ export function TableCard<T>({
                         <div className="flex items-start gap-1 font-sans text-sm font-normal">
                             {breadcrumbs.map((crumb, idx) => (
                                 <React.Fragment key={idx}>
-                                    <span className={idx === breadcrumbs.length - 1 ? "text-[#0C335C]" : "text-[#FE641F]"}>
-                                        {crumb.label}
-                                    </span>
+                                    {crumb.href ? (
+                                        <Link href={crumb.href} className={`hover:underline cursor-pointer ${idx === breadcrumbs.length - 1 ? "text-[#0C335C]" : "text-[#FE641F]"}`}>
+                                            {crumb.label}
+                                        </Link>
+                                    ) : (
+                                        <span className={idx === breadcrumbs.length - 1 ? "text-[#0C335C]" : "text-[#FE641F]"}>
+                                            {crumb.label}
+                                        </span>
+                                    )}
                                     {idx < breadcrumbs.length - 1 && (
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
                                             <path d="M5.14644 4.18624C5.09732 4.14046 5.05792 4.08526 5.03059 4.02393C5.00326 3.9626 4.98857 3.89639 4.98738 3.82925C4.9862 3.76212 4.99855 3.69543 5.0237 3.63317C5.04884 3.57092 5.08627 3.51436 5.13375 3.46688C5.18123 3.4194 5.23779 3.38197 5.30005 3.35682C5.3623 3.33168 5.42899 3.31933 5.49613 3.32051C5.56326 3.3217 5.62947 3.33639 5.6908 3.36372C5.75214 3.39105 5.80734 3.43045 5.85311 3.47957L10.5198 8.14624C10.6134 8.23999 10.666 8.36707 10.666 8.49957C10.666 8.63207 10.6134 8.75915 10.5198 8.85291L5.85311 13.5196C5.80734 13.5687 5.75214 13.6081 5.6908 13.6354C5.62947 13.6628 5.56326 13.6774 5.49613 13.6786C5.42899 13.6798 5.3623 13.6675 5.30005 13.6423C5.23779 13.6172 5.18123 13.5797 5.13375 13.5323C5.08627 13.4848 5.04884 13.4282 5.0237 13.366C4.99855 13.3037 4.9862 13.237 4.98738 13.1699C4.98857 13.1028 5.00326 13.0365 5.03059 12.9752C5.05792 12.9139 5.09732 12.8587 5.14644 12.8129L9.45978 8.49957L5.14644 4.18624Z" fill="#0C335C" />

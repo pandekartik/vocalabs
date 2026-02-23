@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
                             <p className="text-gray-600 text-sm mb-6">
                                 If an account exists for <span className="font-semibold text-gray-900">{email}</span>, we&apos;ve sent a password reset link to your email.
                             </p>
-                            <Link href="/login" className="text-sm font-semibold text-[#FF6B00] hover:text-[#E65A00]">
+                            <Link href="/" className="text-sm font-semibold text-[#FF6B00] hover:text-[#E65A00]">
                                 Back to Login
                             </Link>
                         </div>
@@ -101,7 +101,7 @@ export default function ForgotPasswordPage() {
                             </form>
 
                             <div className="mt-6 text-center">
-                                <Link href="/login" className="text-sm font-semibold text-gray-500 hover:text-gray-700">
+                                <Link href="/" className="text-sm font-semibold text-gray-500 hover:text-gray-700">
                                     Back to Login
                                 </Link>
                             </div>

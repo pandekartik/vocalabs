@@ -53,6 +53,7 @@ const AGENT_ITEMS = [
 const PLATFORM_ADMIN_ITEMS = [
     { icon: BarChart, label: "Dashboard", href: "/admin/platform" },
     { icon: Users, label: "Organizations", href: "/admin/platform/orgs" },
+    { icon: Clock, label: "Audit Trail", href: "/admin/platform/audit" },
     { icon: Settings, label: "System Health", href: "/admin/platform/health" },
     { icon: Settings, label: "Settings", href: "/admin/platform/settings" },
 ];
@@ -120,11 +121,15 @@ export function SideNav() {
                             key={item.href}
                             {...item}
                             isActive={
-                                item.href === "/dialer"
-                                    ? pathname === "/dialer"
-                                    : item.href === "/dashboard/team"
-                                        ? pathname === "/dashboard/team"
-                                        : pathname.startsWith(item.href)
+                                item.href === "/admin/platform"
+                                    ? pathname === "/admin/platform"
+                                    : item.href === "/admin/org"
+                                        ? pathname === "/admin/org"
+                                        : item.href === "/dialer"
+                                            ? pathname === "/dialer"
+                                            : item.href === "/dashboard/team"
+                                                ? pathname === "/dashboard/team"
+                                                : pathname.startsWith(item.href)
                             }
                         />
                     ))}

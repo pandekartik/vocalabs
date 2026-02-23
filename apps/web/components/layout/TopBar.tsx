@@ -5,6 +5,7 @@ import { Bell, ChevronDown, Clock, Phone } from "lucide-react";
 import Image from "next/image";
 import { useCallStore } from "@/store/useCallStore";
 import AgentStatusPill, { AgentStatusType } from "@/components/dashboard/AgentStatusPill";
+import axios from "axios";
 
 function Logo() {
     return (
@@ -22,25 +23,46 @@ function Logo() {
 }
 
 export function TopBar() {
-    const [user, setUser] = useState<{ firstName: string; lastName: string; role: string; phone?: string; initials?: string } | null>(null);
+    const [user, setUser] = useState<{ firstName: string; lastName: string; role: string; phone?: string; initials?: string; organization_id?: string; user_id?: string; } | null>(null);
     const { callStatus, isDeviceRegistered } = useCallStore();
 
     useEffect(() => {
         const userStr = localStorage.getItem("user");
+        const token = localStorage.getItem("token");
         if (userStr) {
             try {
                 const userData = JSON.parse(userStr);
-                const firstName = userData.first_name || "Guest";
-                const lastName = userData.last_name || "";
-                const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+                let firstName = userData.first_name || "Guest";
+                let lastName = userData.last_name || "";
 
-                setUser({
-                    firstName,
-                    lastName,
-                    role: userData.role || "User",
-                    phone: "+91 7722010666", // Mocking phone number for now as it's not in the generic user object
-                    initials
-                });
+                const setUserStateAndInitials = (fName: string, lName: string) => {
+                    const initials = `${fName.charAt(0)}${lName.charAt(0)}`.toUpperCase();
+                    setUser({
+                        firstName: fName,
+                        lastName: lName,
+                        role: userData.role || "User",
+                        phone: "+91 7722010666", // Mocking phone number for now as it's not in the generic user object
+                        initials,
+                        organization_id: userData.organization_id,
+                        user_id: userData.user_id
+                    });
+                };
+
+                // Set optimistic state first
+                setUserStateAndInitials(firstName, lastName);
+
+                // Fetch real name for ORG_ADMIN since auth returns no name
+                if (userData.role?.toUpperCase() === "ORG_ADMIN" && userData.organization_id && token) {
+                    axios.get(`https://api.vocalabstech.com/admin/organizations/${userData.organization_id}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    }).then(res => {
+                        const adminData = res.data?.admin;
+                        if (adminData && adminData.first_name) {
+                            setUserStateAndInitials(adminData.first_name, adminData.last_name || "");
+                        }
+                    }).catch(err => console.error("Failed fetching org admin user details for topbar", err));
+                }
+
             } catch (e) {
                 console.error("Failed to parse user data", e);
             }
@@ -48,14 +70,15 @@ export function TopBar() {
     }, []);
 
     const getRoleLabel = (role: string) => {
+        const r = role.toUpperCase();
         const roleMap: Record<string, string> = {
             "AGENT": "Agent",
             "SUPERVISOR": "Manager",
             "MANAGER": "Manager",
-            "ORG_ADMIN": "Admin",
+            "ORG_ADMIN": "Organization Admin",
             "PLATFORM_ADMIN": "VocaLabs Admin"
         };
-        return roleMap[role] || role;
+        return roleMap[r] || role;
     };
 
     return (
