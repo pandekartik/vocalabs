@@ -23,7 +23,7 @@ function Logo() {
 }
 
 export function TopBar() {
-    const [user, setUser] = useState<{ firstName: string; lastName: string; role: string; phone?: string; initials?: string; organization_id?: string; user_id?: string; } | null>(null);
+    const [user, setUser] = useState<{ firstName: string; lastName: string; role: string; phone?: string; initials?: string; organization_id?: string; user_id?: string; orgName?: string; } | null>(null);
     const { callStatus, isDeviceRegistered } = useCallStore();
 
     useEffect(() => {
@@ -35,7 +35,7 @@ export function TopBar() {
                 let firstName = userData.first_name || "Guest";
                 let lastName = userData.last_name || "";
 
-                const setUserStateAndInitials = (fName: string, lName: string) => {
+                const setUserStateAndInitials = (fName: string, lName: string, orgName?: string) => {
                     const initials = `${fName.charAt(0)}${lName.charAt(0)}`.toUpperCase();
                     setUser({
                         firstName: fName,
@@ -44,7 +44,8 @@ export function TopBar() {
                         phone: "+91 7722010666", // Mocking phone number for now as it's not in the generic user object
                         initials,
                         organization_id: userData.organization_id,
-                        user_id: userData.user_id
+                        user_id: userData.user_id,
+                        orgName
                     });
                 };
 
@@ -56,9 +57,11 @@ export function TopBar() {
                     axios.get(`https://api.vocalabstech.com/admin/organizations/${userData.organization_id}`, {
                         headers: { Authorization: `Bearer ${token}` }
                     }).then(res => {
-                        const adminData = res.data?.admin;
-                        if (adminData && adminData.first_name) {
-                            setUserStateAndInitials(adminData.first_name, adminData.last_name || "");
+                        const orgUsers = res.data.users || [];
+                        const me = orgUsers.find((u: any) => u.id === userData.user_id || u.email === userData.email) || orgUsers[0];
+                        const orgName = res.data.name;
+                        if (me && me.first_name) {
+                            setUserStateAndInitials(me.first_name, me.last_name || "", orgName);
                         }
                     }).catch(err => console.error("Failed fetching org admin user details for topbar", err));
                 }
@@ -126,7 +129,7 @@ export function TopBar() {
                         {user ? `${user.firstName} ${user.lastName}` : "Guest User"}
                     </p>
                     <p className="text-xs text-[#64748b] leading-none">
-                        {user ? getRoleLabel(user.role) : "Guest"}
+                        {user ? `${getRoleLabel(user.role)}${user.orgName ? ` : ${user.orgName}` : ''}` : "Guest"}
                     </p>
                 </div>
             </div>
