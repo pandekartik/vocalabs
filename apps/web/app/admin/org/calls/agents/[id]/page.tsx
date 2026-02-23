@@ -141,7 +141,8 @@ export default function AgentSpecificCallsScreen({ params }: { params: { id: str
         if (!searchCall) return true;
         const cid = (c.id || "").toLowerCase();
         const phone = (c.from_number || c.to_number || "").toLowerCase();
-        return cid.includes(searchCallLower) || phone.includes(searchCallLower);
+        const transcript = (c.transcript || "").toLowerCase();
+        return cid.includes(searchCallLower) || phone.includes(searchCallLower) || transcript.includes(searchCallLower);
     });
 
     const handleExportCSV = () => {

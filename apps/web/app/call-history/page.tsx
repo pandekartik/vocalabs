@@ -216,7 +216,8 @@ export default function CallHistoryPage() {
     // Apply filters
     const filteredData = data.filter(call => {
         const num = call.direction === "inbound" ? call.from_number : call.to_number;
-        if (search && !num?.includes(search) && !call.id.toLowerCase().includes(search.toLowerCase()) && !call.agent_notes?.toLowerCase().includes(search.toLowerCase())) return false;
+        const lowerSearch = search.toLowerCase();
+        if (search && !num?.includes(search) && !call.id.toLowerCase().includes(lowerSearch) && !call.agent_notes?.toLowerCase().includes(lowerSearch) && !call.transcript?.toLowerCase().includes(lowerSearch)) return false;
         if (directionFilter !== "all" && call.direction.toLowerCase() !== directionFilter.toLowerCase()) return false;
         if (outcomeFilter !== "all" && call.status.toLowerCase() !== outcomeFilter.toLowerCase()) return false;
         return true;

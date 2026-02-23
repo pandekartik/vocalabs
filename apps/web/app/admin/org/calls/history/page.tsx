@@ -159,7 +159,8 @@ export default function CallHistoryScreen() {
         const agentName = (c.agent_name || c.agent_id_str || "unknown").toLowerCase();
         const cid = (c.id || "").toLowerCase();
         const phone = (c.from_number || c.to_number || "").toLowerCase();
-        return agentName.includes(searchCallLower) || cid.includes(searchCallLower) || phone.includes(searchCallLower);
+        const transcript = (c.transcript || "").toLowerCase();
+        return agentName.includes(searchCallLower) || cid.includes(searchCallLower) || phone.includes(searchCallLower) || transcript.includes(searchCallLower);
     });
 
     const handleExportCSV = () => {
