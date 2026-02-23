@@ -22,8 +22,16 @@ function Logo() {
     );
 }
 
+const formatDuration = (seconds: number | null) => {
+    if (!seconds) return "00h 00m";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m`;
+};
+
 export function TopBar() {
     const [user, setUser] = useState<{ firstName: string; lastName: string; role: string; phone?: string; initials?: string; organization_id?: string; user_id?: string; orgName?: string; } | null>(null);
+    const [agentStats, setAgentStats] = useState({ calls: 0, duration: 0 });
     const { callStatus, isDeviceRegistered } = useCallStore();
 
     useEffect(() => {
@@ -32,38 +40,65 @@ export function TopBar() {
         if (userStr) {
             try {
                 const userData = JSON.parse(userStr);
+                const roleUpper = userData.role?.toUpperCase() || "USER";
                 let firstName = userData.first_name || "Guest";
                 let lastName = userData.last_name || "";
 
-                const setUserStateAndInitials = (fName: string, lName: string, orgName?: string) => {
+                const setUserStateAndInitials = (fName: string, lName: string, orgName?: string, phoneOverride?: string) => {
                     const initials = `${fName.charAt(0)}${lName.charAt(0)}`.toUpperCase();
-                    setUser({
+                    setUser(prev => ({
                         firstName: fName,
                         lastName: lName,
                         role: userData.role || "User",
-                        phone: "+91 7722010666", // Mocking phone number for now as it's not in the generic user object
+                        phone: phoneOverride || prev?.phone || "",
                         initials,
                         organization_id: userData.organization_id,
                         user_id: userData.user_id,
                         orgName
-                    });
+                    }));
                 };
 
                 // Set optimistic state first
                 setUserStateAndInitials(firstName, lastName);
 
+                const headers = { Authorization: `Bearer ${token}` };
+
                 // Fetch real name for ORG_ADMIN since auth returns no name
-                if (userData.role?.toUpperCase() === "ORG_ADMIN" && userData.organization_id && token) {
-                    axios.get(`https://api.vocalabstech.com/admin/organizations/${userData.organization_id}`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    }).then(res => {
-                        const orgUsers = res.data.users || [];
-                        const me = orgUsers.find((u: any) => u.id === userData.user_id || u.email === userData.email) || orgUsers[0];
-                        const orgName = res.data.name;
-                        if (me && me.first_name) {
-                            setUserStateAndInitials(me.first_name, me.last_name || "", orgName);
+                if (roleUpper === "ORG_ADMIN" && userData.organization_id && token) {
+                    axios.get(`https://api.vocalabstech.com/admin/organizations/${userData.organization_id}`, { headers })
+                        .then(res => {
+                            const orgUsers = res.data.users || [];
+                            const me = orgUsers.find((u: any) => u.id === userData.user_id || u.email === userData.email) || orgUsers[0];
+                            const orgName = res.data.name;
+                            if (me && me.first_name) {
+                                setUserStateAndInitials(me.first_name, me.last_name || "", orgName);
+                            }
+                        }).catch(err => console.error("Failed fetching org admin user details for topbar", err));
+                }
+
+                if (["AGENT", "SUPERVISOR", "MANAGER"].includes(roleUpper) && token) {
+                    // Fetch phone number and live stats concurrently
+                    Promise.all([
+                        axios.get(`https://api.vocalabstech.com/agents`, { headers }).catch(() => null),
+                        axios.get(`https://api.vocalabstech.com/calls/my-calls/stats`, { headers }).catch(() => null)
+                    ]).then(([agentsRes, statsRes]) => {
+                        if (agentsRes && agentsRes.data && Array.isArray(agentsRes.data)) {
+                            // Find the current logged in agent's representation to extract the specific phone_number field
+                            const me = agentsRes.data.find((a: any) => a.user_id === userData.user_id || a.email === userData.email);
+                            if (me && me.phone_number) {
+                                setUserStateAndInitials(firstName, lastName, undefined, me.phone_number);
+                            }
                         }
-                    }).catch(err => console.error("Failed fetching org admin user details for topbar", err));
+
+                        if (statsRes && statsRes.data) {
+                            const calls = statsRes.data.today_calls || 0;
+                            const avgDur = statsRes.data.avg_duration || 0;
+                            setAgentStats({
+                                calls,
+                                duration: calls * avgDur // Total time approximation
+                            });
+                        }
+                    });
                 }
 
             } catch (e) {
@@ -111,13 +146,13 @@ export function TopBar() {
                         <div className="flex items-center gap-1.5">
                             <Clock className="h-4 w-4 text-[#64748b]" />
                             <span className="text-[#64748b]">Call Time:</span>
-                            <span className="font-semibold text-[#111]">05h 19m</span>
+                            <span className="font-semibold text-[#111]">{formatDuration(agentStats.duration)}</span>
                         </div>
                         <div className="w-[1px] h-4 bg-black/10"></div>
                         <div className="flex items-center gap-1.5">
                             <Phone className="h-4 w-4 text-[#64748b]" />
                             <span className="text-[#64748b]">Calls:</span>
-                            <span className="font-semibold text-[#111]">47</span>
+                            <span className="font-semibold text-[#111]">{agentStats.calls}</span>
                         </div>
                     </div>
                 </div>
