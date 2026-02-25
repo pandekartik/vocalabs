@@ -188,7 +188,7 @@ export default function CallHistoryPage() {
             width: "w-[90px]",
             fixedRight: true,
             render: (call) => {
-                const hasRecording = !!call.recording_url;
+                const hasRecording = !!(call.recording_gcs_url || call.recording_url);
                 const isProcessing = call.status === "completed" && !hasRecording;
 
                 return (
@@ -260,7 +260,7 @@ export default function CallHistoryPage() {
                     `"${new Date(call.started_at).toISOString()}"`,
                     `"${call.agent_notes ? call.agent_notes.replace(/"/g, '""') : ''}"`,
                     `"${tagsStr}"`,
-                    `"${call.recording_url || ''}"`
+                    `"${call.recording_gcs_url || call.recording_url || ''}"`
                 ].join(',');
             })
         ];

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
-import { Play, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, Pause, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { CallRecord } from "@/app/call-history/types";
 import { cn } from "@repo/ui/lib/utils";
 
@@ -8,6 +8,10 @@ export default function RecentCallsCard() {
     const [calls, setCalls] = useState<CallRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [playingId, setPlayingId] = useState<string | null>(null);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [audioDuration, setAudioDuration] = useState(0);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         const fetchRecentCalls = async () => {
@@ -69,8 +73,9 @@ export default function RecentCallsCard() {
                 ) : (
                     calls.slice(0, 50).map((call) => {
                         const isExpanded = expandedId === call.id;
-                        const hasRecording = !!call.recording_url;
-                        const hasTranscript = !!call.transcript;
+                        const recordingUrl = call.recording_gcs_url || call.recording_url || null;
+                        const hasRecording = !!recordingUrl;
+                        const hasTranscript = !!(call.transcript_segments?.length || call.transcript);
                         const hasSummary = !!call.ai_summary;
                         const displayNum = call.direction === "inbound" ? call.from_number : call.to_number;
 
@@ -158,22 +163,69 @@ export default function RecentCallsCard() {
                                         {hasTranscript && (
                                             <div className="mt-3">
                                                 <h4 className="font-semibold text-xs text-navy mb-1 px-1">Transcript</h4>
-                                                <div className="bg-white/60 p-3 inset-0 rounded-lg text-xs leading-relaxed max-h-40 overflow-y-auto font-sans whitespace-pre-wrap text-gray-700 border border-black/5">
-                                                    {call.transcript}
+                                                <div className="bg-white/60 p-3 inset-0 rounded-lg text-xs leading-relaxed max-h-40 overflow-y-auto font-sans text-gray-700 border border-black/5">
+                                                    {call.transcript_segments?.length ? (
+                                                        call.transcript_segments
+                                                            .sort((a, b) => a.time - b.time)
+                                                            .map((seg, i) => (
+                                                                <div key={i} className="mb-1">
+                                                                    <span className={cn("font-semibold", seg.speaker === "Agent" ? "text-blue-700" : "text-orange-700")}>{seg.speaker}:</span>{" "}
+                                                                    <span>{seg.text}</span>
+                                                                </div>
+                                                            ))
+                                                    ) : (
+                                                        <p className="whitespace-pre-wrap">{call.transcript}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
 
                                         {hasRecording && (
                                             <div className="mt-3 bg-white rounded-lg p-3 border border-gray-100 shadow-sm flex items-center gap-3">
-                                                <button className="h-8 w-8 shrink-0 bg-brand text-white rounded-full flex items-center justify-center hover:bg-brand/90 transition-transform">
-                                                    <Play size={14} className="ml-0.5" />
+                                                <button
+                                                    className="h-8 w-8 shrink-0 bg-brand text-white rounded-full flex items-center justify-center hover:bg-brand/90 transition-transform active:scale-95"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (playingId === call.id && audioRef.current) {
+                                                            audioRef.current.pause();
+                                                            setPlayingId(null);
+                                                        } else {
+                                                            if (audioRef.current) audioRef.current.pause();
+                                                            const audio = new Audio(recordingUrl!);
+                                                            audioRef.current = audio;
+                                                            audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
+                                                            audio.onloadedmetadata = () => setAudioDuration(audio.duration);
+                                                            audio.onended = () => { setPlayingId(null); setCurrentTime(0); };
+                                                            audio.play();
+                                                            setPlayingId(call.id);
+                                                            setCurrentTime(0);
+                                                        }
+                                                    }}
+                                                >
+                                                    {playingId === call.id ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
                                                 </button>
-                                                <audio src={call.recording_url} className="w-full h-8 hidden" controls />
-                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div className="w-0 h-full bg-brand"></div>
+                                                <div
+                                                    className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden cursor-pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (audioRef.current && playingId === call.id) {
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            const pct = (e.clientX - rect.left) / rect.width;
+                                                            audioRef.current.currentTime = pct * (audioDuration || 1);
+                                                        }
+                                                    }}
+                                                >
+                                                    <div
+                                                        className="h-full bg-brand transition-all"
+                                                        style={{ width: playingId === call.id ? `${(currentTime / (audioDuration || 1)) * 100}%` : '0%' }}
+                                                    />
                                                 </div>
-                                                <span className="text-[10px] font-mono text-gray-500">0:00 / {formatDuration(call.duration)}</span>
+                                                <span className="text-[10px] font-mono text-gray-500 shrink-0">
+                                                    {playingId === call.id
+                                                        ? `${Math.floor(currentTime / 60)}:${String(Math.floor(currentTime % 60)).padStart(2, '0')}`
+                                                        : '0:00'
+                                                    } / {formatDuration(call.duration)}
+                                                </span>
                                             </div>
                                         )}
 

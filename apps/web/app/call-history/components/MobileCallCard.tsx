@@ -81,10 +81,10 @@ export function MobileCallCard({ call, onClick, onSelect, isSelected, selectable
 
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-1"><Clock size={16} /> {formatDuration(call.duration)}</div>
-                {call.recording_url && (
+                {(call.recording_gcs_url || call.recording_url) && (
                     <div className="flex items-center gap-1 text-red-600"><div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /> Recording</div>
                 )}
-                {!call.recording_url && call.status === "completed" && (
+                {!(call.recording_gcs_url || call.recording_url) && call.status === "completed" && (
                     <div className="flex items-center gap-1 text-amber-600"><Clock size={14} /> Processing</div>
                 )}
                 <div className="text-gray-400 ml-auto">{formattedDate}</div>

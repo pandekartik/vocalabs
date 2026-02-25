@@ -21,6 +21,7 @@ export interface CallRecord {
     recording_url: string;
     recording_gcs_url: string | null;
     transcript: string;
+    transcript_segments: { time: number; text: string; speaker: string; timestamp: string }[] | null;
     ai_summary: string;
     overall_sentiment: string;
     disconnect_reason: string | null;

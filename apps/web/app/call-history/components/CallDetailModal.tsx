@@ -314,7 +314,24 @@ export function CallDetailModal({ call, isOpen, onClose }: CallDetailModalProps)
                     <section className="flex flex-col gap-3">
                         <h3 className="text-sm font-semibold text-navy">Transcript</h3>
                         <div className="flex flex-col gap-4 p-4 border border-black/10 rounded-xl bg-white">
-                            {call.transcript ? (
+                            {call.transcript_segments?.length ? (
+                                <div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto">
+                                    {[...call.transcript_segments]
+                                        .sort((a, b) => a.time - b.time)
+                                        .map((seg, i) => (
+                                            <div key={i} className="flex gap-2 text-sm">
+                                                <span className={cn(
+                                                    "font-semibold shrink-0 w-[70px] text-right",
+                                                    seg.speaker === "Agent" ? "text-blue-700" : "text-orange-700"
+                                                )}>
+                                                    {seg.speaker}:
+                                                </span>
+                                                <span className="text-navy">{seg.text}</span>
+                                            </div>
+                                        ))
+                                    }
+                                </div>
+                            ) : call.transcript ? (
                                 <p className="whitespace-pre-line text-navy text-sm">{call.transcript}</p>
                             ) : (
                                 <span className="text-gray-400 italic text-sm">No transcript available.</span>

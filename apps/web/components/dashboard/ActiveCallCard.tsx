@@ -24,10 +24,12 @@ export default function ActiveCallCard({ onEndCall }: ActiveCallCardProps) {
         toggleRecording,
         isRecordingPaused,
         phoneNumber,
-        callStatus
+        callStatus,
+        sendDTMF
     } = useCallStore();
 
     const [showKeypad, setShowKeypad] = useState(false);
+    const [pressedDigits, setPressedDigits] = useState("");
 
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -41,7 +43,8 @@ export default function ActiveCallCard({ onEndCall }: ActiveCallCardProps) {
     };
 
     const handleKeyPress = (key: string) => {
-        console.log("Key pressed:", key);
+        sendDTMF(key);
+        setPressedDigits(prev => prev + key);
     };
 
     const keys = [
@@ -81,6 +84,25 @@ export default function ActiveCallCard({ onEndCall }: ActiveCallCardProps) {
                 {/* Keypad Overlay View */}
                 {showKeypad ? (
                     <div className="flex flex-col items-center justify-center flex-1 w-full animate-in fade-in zoom-in-95 duration-200">
+                        {/* Pressed digits display */}
+                        <div
+                            className="flex items-center justify-center w-full mb-4 px-4 py-3 rounded-2xl border border-[rgba(17,17,17,0.05)] min-h-[48px] relative"
+                            style={{
+                                background: "linear-gradient(96deg, rgba(17, 17, 17, 0.03) -4.09%, rgba(17, 17, 17, 0.01) 105.58%)"
+                            }}
+                        >
+                            <span className="text-xl font-mono font-medium text-[#0c335c] tracking-[0.15em] text-center break-all">
+                                {pressedDigits || <span className="text-[#111] opacity-40 text-sm font-sans tracking-normal">Pressed digits appear here</span>}
+                            </span>
+                            {pressedDigits && (
+                                <button
+                                    onClick={() => setPressedDigits("")}
+                                    className="absolute right-3 text-[#64748b] hover:text-[#111] text-xs font-medium"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
                         <div className="grid grid-cols-3 gap-4 mb-4">
                             {keys.map((key) => (
                                 <button
